@@ -16,9 +16,10 @@ chmod +x setup.sh && ./setup.sh
 |---|---|---|
 | `01_camera_test.py` | Camera + FPS | FPS within 20% of target |
 | `02_person_detection.py` | OpenCV HOG detection | Bounding boxes in `/tmp/detections.jpg` |
-| `03_motor_control.py` | GPIO motor sequence | No GPIO errors |
-| `04_ultrasonic_test.py` | HC-SR04 distance | Obstacle threshold triggers |
-| `05_full_pipeline.py` | Full integration | Follow + obstacle stop |
+| `03_yolo_detection.py` | OpenCV YOLO detection | Bounding boxes in `/tmp/detections.jpg` |
+| `04_motor_control.py` | GPIO motor sequence | No GPIO errors |
+| `05_ultrasonic_test.py` | HC-SR04 distance | Obstacle threshold triggers |
+| `06_full_pipeline.py` | Full integration | Follow + obstacle stop |
 
 Run each from the repo root:
 ```bash
