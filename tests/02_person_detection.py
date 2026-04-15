@@ -35,7 +35,7 @@ def detect_people(hog, frame_bgr):
     scale_y = frame_bgr.shape[0] / 240
     results = []
     for (x, y, w, h), weight in zip(rects, weights):
-        if weight[0] < config.CONFIDENCE_FLOOR:
+        if float(weight) < config.CONFIDENCE_FLOOR:
             continue
         results.append((
             int(x * scale_x), int(y * scale_y),

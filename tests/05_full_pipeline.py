@@ -56,7 +56,7 @@ def detection_thread():
             padding=config.HOG_PADDING,
             scale=config.HOG_SCALE
         )
-        if len(rects) > 0 and weights[0][0] >= config.CONFIDENCE_FLOOR:
+        if len(rects) > 0 and float(weights[0]) >= config.CONFIDENCE_FLOOR:
             x, y, w, h = rects[0]
             cx = (x + w / 2) * (config.CAMERA_WIDTH / 320)
             person_detected  = True
