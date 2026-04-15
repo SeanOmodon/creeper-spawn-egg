@@ -19,4 +19,4 @@ OBSTACLE_DISTANCE_CM = 30   # stop threshold
 HOG_WIN_STRIDE   = (8, 8)
 HOG_PADDING      = (4, 4)
 HOG_SCALE        = 1.05
-CONFIDENCE_FLOOR = 0.3      # filter weak detections
+CONFIDENCE_FLOOR = 0.5      # filter weak detections
