@@ -1,6 +1,6 @@
 """
-Stage 5 — Full pipeline integration
-Run: python3 tests/05_full_pipeline.py
+Stage 6 — Full pipeline integration
+Run: python3 tests/06_full_pipeline.py
 Behaviour:
   - Detects person -> drives toward them
   - Ultrasonic < OBSTACLE_DISTANCE_CM -> stops regardless of detection
@@ -14,8 +14,8 @@ import config
 from picamera2 import Picamera2
 import cv2
 import RPi.GPIO as GPIO
-from tests.test03_motor_control import MotorController
-from tests.test04_ultrasonic_test import read_distance_cm
+from tests.test04_motor_control import MotorController
+from tests.test05_ultrasonic_test import read_distance_cm
 
 # ── Shared state ───────────────────────────────────────────────
 obstacle_detected = False
@@ -34,8 +34,8 @@ def ultrasonic_thread():
 
 def detection_thread():
     global person_detected, person_offset_x
-    hog = cv2.HOGDescriptor()
-    hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+    from ultralytics import YOLO
+    model = YOLO("yolov8n.pt")
 
     cam = Picamera2()
     cam.configure(cam.create_video_configuration(
@@ -49,21 +49,18 @@ def detection_thread():
     while True:
         frame = cam.capture_array()
         bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        small = cv2.resize(bgr, (320, 240))
-        rects, weights = hog.detectMultiScale(
-            small,
-            winStride=config.HOG_WIN_STRIDE,
-            padding=config.HOG_PADDING,
-            scale=config.HOG_SCALE
-        )
-        if len(rects) > 0 and float(weights[0]) >= config.CONFIDENCE_FLOOR:
-            x, y, w, h = rects[0]
-            cx = (x + w / 2) * (config.CAMERA_WIDTH / 320)
-            person_detected  = True
-            person_offset_x  = cx - frame_cx
+
+        results = model(bgr, classes=[0], verbose=False, imgsz=320)
+        boxes = results[0].boxes
+
+        if len(boxes) > 0 and float(boxes[0].conf[0]) >= config.CONFIDENCE_FLOOR:
+            x1, y1, x2, y2 = boxes[0].xyxy[0].tolist()
+            cx = (x1 + x2) / 2
+            person_detected = True
+            person_offset_x = cx - frame_cx
         else:
-            person_detected  = False
-            person_offset_x  = 0
+            person_detected = False
+            person_offset_x = 0
 
 def control_loop(mc):
     DEAD_ZONE = 60  # px — ignore small offsets

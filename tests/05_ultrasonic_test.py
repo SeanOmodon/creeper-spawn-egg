@@ -1,6 +1,6 @@
 """
-Stage 4 — HC-SR04 ultrasonic sensor test
-Run: python3 tests/04_ultrasonic_test.py
+Stage 5 — HC-SR04 ultrasonic sensor test
+Run: python3 tests/05_ultrasonic_test.py
 Pass condition: stable readings printed for 15s; obstacle threshold triggered correctly.
 """
 

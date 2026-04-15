@@ -1,7 +1,6 @@
-# Camera
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
-CAMERA_FPS = 15          # Pi Zero 2W sweet spot; drop to 10 if detection lags
+CAMERA_FPS = 30          # Pi 4 handles 30fps fine
 
 # Motor GPIO (adjust to your wiring)
 MOTOR_LEFT_FWD  = 17

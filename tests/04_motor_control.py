@@ -1,6 +1,6 @@
 """
-Stage 3 — Motor control test (GPIO)
-Run: python3 tests/03_motor_control.py
+Stage 4 — Motor control test (GPIO)
+Run: python3 tests/04_motor_control.py
 Pass condition: motors execute the sequence without GPIO errors.
 Requires: L298N or similar H-bridge wired to pins in config.py
 """
