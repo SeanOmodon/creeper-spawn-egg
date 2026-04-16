@@ -1,8 +1,7 @@
 """
-Stage 3 — YOLOv8n person detection
+Stage 3 — YOLOv8n person detection via ONNX
 Run: python3 tests/03_yolo_detection.py
 Saves: /tmp/yolo_detections.jpg
-Pass condition: consistent person detections with confidence scores shown.
 """
 
 import time, sys, os
@@ -10,12 +9,43 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import config
 
 from picamera2 import Picamera2
-from ultralytics import YOLO
+import onnxruntime as ort
+import numpy as np
 import cv2
 
+def load_model():
+    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "yolov8n.onnx")
+    if not os.path.exists(model_path):
+        print(f"[Stage 3] FAIL — yolov8n.onnx not found at {model_path}")
+        print("[Stage 3] Export it on your laptop and scp it to the Pi — see README")
+        sys.exit(1)
+    session = ort.InferenceSession(model_path)
+    input_name = session.get_inputs()[0].name
+    return session, input_name
+
+def detect_people(session, input_name, bgr):
+    img = cv2.resize(bgr, (320, 320))
+    img_input = img.transpose(2, 0, 1)[np.newaxis].astype(np.float32) / 255.0
+    outputs = session.run(None, {input_name: img_input})[0][0]  # shape: (84, 8400)
+
+    boxes = []
+    for i in range(outputs.shape[1]):
+        scores = outputs[4:, i]
+        class_id = int(np.argmax(scores))
+        conf = float(scores[class_id])
+        if class_id != 0 or conf < config.CONFIDENCE_FLOOR:
+            continue
+        cx, cy, w, h = outputs[:4, i]
+        x1 = int((cx - w/2) * (config.CAMERA_WIDTH / 320))
+        y1 = int((cy - h/2) * (config.CAMERA_HEIGHT / 320))
+        x2 = int((cx + w/2) * (config.CAMERA_WIDTH / 320))
+        y2 = int((cy + h/2) * (config.CAMERA_HEIGHT / 320))
+        boxes.append((x1, y1, x2, y2, conf))
+    return boxes
+
 def main():
-    print("[Stage 3] Loading YOLOv8n model (downloads on first run)...")
-    model = YOLO("yolov8n.pt")
+    print("[Stage 3] Loading YOLOv8n ONNX model...")
+    session, input_name = load_model()
 
     print("[Stage 3] Starting camera...")
     cam = Picamera2()
@@ -35,15 +65,9 @@ def main():
     while time.time() < deadline:
         frame = cam.capture_array()
         bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        boxes = detect_people(session, input_name, bgr)
 
-        results = model(bgr, classes=[0], verbose=False, imgsz=320)
-        boxes = results[0].boxes
-
-        for box in boxes:
-            conf = float(box.conf[0])
-            if conf < config.CONFIDENCE_FLOOR:
-                continue
-            x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
+        for (x1, y1, x2, y2, conf) in boxes:
             cv2.rectangle(bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(bgr, f"person {conf:.2f}", (x1, y1 - 8),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
@@ -51,7 +75,7 @@ def main():
             last_save = bgr.copy()
 
         frames_processed += 1
-        if frames_processed % 30 == 0:
+        if frames_processed % 10 == 0:
             remaining = int(deadline - time.time())
             print(f"[Stage 3] {remaining}s left | detections this frame: {len(boxes)}")
 
