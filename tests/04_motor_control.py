@@ -60,9 +60,9 @@ def main():
             print(f"[Stage 3] {label} for {duration}s...")
             action()
             time.sleep(duration)
-        print("[Stage 3] PASS")
+        print("[Stage 4] PASS")
     except Exception as e:
-        print(f"[Stage 3] FAIL — {e}")
+        print(f"[Stage 4] FAIL — {e}")
     finally:
         mc.cleanup()
 

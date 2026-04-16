@@ -39,8 +39,8 @@ def read_distance_cm(timeout=0.04):
     return round((pulse_end - pulse_start) * 17150, 1)  # cm
 
 def main():
-    print(f"[Stage 4] Reading ultrasonic for 15s. Obstacle threshold: {config.OBSTACLE_DISTANCE_CM}cm")
-    print("[Stage 4] Move your hand toward the sensor to test threshold trigger.")
+    print(f"[Stage 5] Reading ultrasonic for 15s. Obstacle threshold: {config.OBSTACLE_DISTANCE_CM}cm")
+    print("[Stage 5] Move your hand toward the sensor to test threshold trigger.")
     deadline = time.time() + 15
     obstacle_triggers = 0
 
@@ -48,20 +48,20 @@ def main():
         while time.time() < deadline:
             dist = read_distance_cm()
             if dist is None:
-                print("[Stage 4] Timeout reading pulse — check wiring")
+                print("[Stage 5] Timeout reading pulse — check wiring")
                 time.sleep(0.2)
                 continue
 
             status = "OBSTACLE" if dist < config.OBSTACLE_DISTANCE_CM else "clear"
             if dist < config.OBSTACLE_DISTANCE_CM:
                 obstacle_triggers += 1
-            print(f"[Stage 4] {dist:6.1f} cm  [{status}]")
+            print(f"[Stage 5] {dist:6.1f} cm  [{status}]")
             time.sleep(0.1)
     finally:
         GPIO.cleanup()
 
-    print(f"[Stage 4] Obstacle triggers: {obstacle_triggers}")
-    print("[Stage 4] PASS" if obstacle_triggers > 0 else "[Stage 4] NOTE — no obstacles detected; verify sensor wiring if unexpected")
+    print(f"[Stage 5] Obstacle triggers: {obstacle_triggers}")
+    print("[Stage 5] PASS" if obstacle_triggers > 0 else "[Stage 5] NOTE — no obstacles detected; verify sensor wiring if unexpected")
 
 if __name__ == "__main__":
     main()
