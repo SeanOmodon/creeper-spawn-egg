@@ -10,8 +10,8 @@ MOTOR_RIGHT_BWD = 23
 MOTOR_PWM_FREQ  = 100    # Hz
 
 # Ultrasonic (HC-SR04)
-TRIG_PIN = 24
-ECHO_PIN = 26
+TRIG_PIN = 8
+ECHO_PIN = 7
 OBSTACLE_DISTANCE_CM = 30   # stop threshold
 
 # Detection
