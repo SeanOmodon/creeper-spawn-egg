@@ -1,6 +1,6 @@
-CAMERA_WIDTH = 640
-CAMERA_HEIGHT = 480
-CAMERA_FPS = 30          # Pi 4 handles 30fps fine
+CAMERA_WIDTH    = 640
+CAMERA_HEIGHT   = 480
+CAMERA_FPS      = 30    # Pi 4 handles 30fps fine
 
 # Motor GPIO 
 
@@ -18,9 +18,9 @@ MOTOR_BR_EnB    = 18    # Back Right EnB
 
 MOTOR_BL_1      = 5     # Back Left IN2
 MOTOR_BL_2      = 4     # Back Left IN1
-MOTOR_BL_EnA    = 20    # Back Left EnA
+MOTOR_BL_EnA    = 19    # Back Left EnA
 
-MOTOR_PWM_FREQ  = 100    # Hz
+MOTOR_PWM_FREQ  = 100   # Hz
 
 # Ultrasonic (HC-SR04)
 TRIG_PIN = 7
