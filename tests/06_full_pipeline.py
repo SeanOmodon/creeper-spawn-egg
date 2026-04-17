@@ -88,35 +88,51 @@ def detect_people(session, input_name, bgr):
     return boxes
 
 # ── Threads ────────────────────────────────────────────────────
-def ultrasonic_thread():
-    global obstacle_detected
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(config.TRIG_PIN, GPIO.OUT)
-    GPIO.setup(config.ECHO_PIN, GPIO.IN)
-    while True:
-        GPIO.output(config.TRIG_PIN, False)
-        time.sleep(0.002)
-        GPIO.output(config.TRIG_PIN, True)
-        time.sleep(0.00001)
-        GPIO.output(config.TRIG_PIN, False)
+def _measure_distance(echo_pin):
+    """Fire the shared trigger and measure echo on the given pin."""
+    GPIO.output(config.TRIG_PIN, False)
+    time.sleep(0.002)
+    GPIO.output(config.TRIG_PIN, True)
+    time.sleep(0.00001)
+    GPIO.output(config.TRIG_PIN, False)
 
-        timeout = time.time() + 0.04
+    timeout = time.time() + 0.04
+    pulse_start = time.time()
+    while GPIO.input(echo_pin) == 0:
         pulse_start = time.time()
-        while GPIO.input(config.ECHO_PIN) == 0:
-            pulse_start = time.time()
-            if pulse_start > timeout:
-                obstacle_detected = False
-                break
-        pulse_end = time.time()
-        timeout = pulse_end + 0.04
-        while GPIO.input(config.ECHO_PIN) == 1:
-            pulse_end = time.time()
-            if pulse_end > timeout:
-                obstacle_detected = False
-                break
+        if time.time() > timeout:
+            return None          # sensor didn't respond
 
-        dist = (pulse_end - pulse_start) * 17150
-        obstacle_detected = dist < config.OBSTACLE_DISTANCE_CM
+    timeout = time.time() + 0.04
+    pulse_end = pulse_start
+    while GPIO.input(echo_pin) == 1:
+        pulse_end = time.time()
+        if time.time() > timeout:
+            return None          # echo never went low
+
+    return (pulse_end - pulse_start) * 17150
+
+def ultrasonic_thread():
+    global obstacle_detected_front, obstacle_detected_back
+
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(config.TRIG_PIN,       GPIO.OUT)
+    GPIO.setup(config.ECHO_PIN_FRONT, GPIO.IN)
+    GPIO.setup(config.ECHO_PIN_BACK,  GPIO.IN)
+
+    while True:
+        # --- front sensor ---
+        dist_front = _measure_distance(config.ECHO_PIN_FRONT)
+        if dist_front is not None:
+            obstacle_detected_front = dist_front < config.OBSTACLE_DISTANCE_CM
+
+        time.sleep(0.01)   # small gap between triggers avoids cross-talk
+
+        # --- back sensor ---
+        dist_back = _measure_distance(config.ECHO_PIN_BACK)
+        if dist_back is not None:
+            obstacle_detected_back = dist_back < config.OBSTACLE_DISTANCE_CM
+
         time.sleep(0.05)
 
 def detection_thread():
