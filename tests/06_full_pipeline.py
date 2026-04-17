@@ -25,37 +25,27 @@ person_offset_x   = 0  # pixels from frame centre; negative=left, positive=right
 # ── Motor controller ───────────────────────────────────────────
 class MotorController:
     def __init__(self):
-        GPIO.setmode(GPIO.BCM)
-        pins = [config.MOTOR_LEFT_FWD, config.MOTOR_LEFT_BWD,
-                config.MOTOR_RIGHT_FWD, config.MOTOR_RIGHT_BWD]
-        for p in pins:
-            GPIO.setup(p, GPIO.OUT)
-        self.pwm_lf = GPIO.PWM(config.MOTOR_LEFT_FWD,  config.MOTOR_PWM_FREQ)
-        self.pwm_lb = GPIO.PWM(config.MOTOR_LEFT_BWD,  config.MOTOR_PWM_FREQ)
-        self.pwm_rf = GPIO.PWM(config.MOTOR_RIGHT_FWD, config.MOTOR_PWM_FREQ)
-        self.pwm_rb = GPIO.PWM(config.MOTOR_RIGHT_BWD, config.MOTOR_PWM_FREQ)
-        for pwm in [self.pwm_lf, self.pwm_lb, self.pwm_rf, self.pwm_rb]:
-            pwm.start(0)
+        self.pi = pigpio.pi()
 
     def forward(self, speed=60):
-        self.pwm_lf.ChangeDutyCycle(speed); self.pwm_lb.ChangeDutyCycle(0)
-        self.pwm_rf.ChangeDutyCycle(speed); self.pwm_rb.ChangeDutyCycle(0)
+        self.pi.hardware_PWM(config.MOTOR_FL_EnB, config.MOTOR_PWM_FREQ, int(speed * 10000))
+        self.pi.hardware_PWM(config.MOTOR_FR_EnA, config.MOTOR_PWM_FREQ, int(speed * 10000))
 
     def stop(self):
-        for pwm in [self.pwm_lf, self.pwm_lb, self.pwm_rf, self.pwm_rb]:
-            pwm.ChangeDutyCycle(0)
+        self.pi.hardware_PWM(config.MOTOR_FL_EnB, config.MOTOR_PWM_FREQ, 0)
+        self.pi.hardware_PWM(config.MOTOR_FR_EnA, config.MOTOR_PWM_FREQ, 0)
 
     def turn_left(self, speed=50):
-        self.pwm_lf.ChangeDutyCycle(0);     self.pwm_lb.ChangeDutyCycle(speed)
-        self.pwm_rf.ChangeDutyCycle(speed); self.pwm_rb.ChangeDutyCycle(0)
+        self.pi.hardware_PWM(config.MOTOR_FL_EnB, config.MOTOR_PWM_FREQ, 0)
+        self.pi.hardware_PWM(config.MOTOR_FR_EnA, config.MOTOR_PWM_FREQ, int(speed * 10000))
 
     def turn_right(self, speed=50):
-        self.pwm_lf.ChangeDutyCycle(speed); self.pwm_lb.ChangeDutyCycle(0)
-        self.pwm_rf.ChangeDutyCycle(0);     self.pwm_rb.ChangeDutyCycle(speed)
+        self.pi.hardware_PWM(config.MOTOR_FL_EnB, config.MOTOR_PWM_FREQ, int(speed * 10000))
+        self.pi.hardware_PWM(config.MOTOR_FR_EnA, config.MOTOR_PWM_FREQ, 0)
 
     def cleanup(self):
         self.stop()
-        GPIO.cleanup()
+        self.pi.stop()
 
 # ── ONNX model ─────────────────────────────────────────────────
 def load_model():
