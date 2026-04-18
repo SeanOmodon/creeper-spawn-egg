@@ -1,5 +1,7 @@
 import RPi.GPIO as GPIO
 import time
+GPIO.setwarnings(False)
+GPIO.cleanup()
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(13, GPIO.OUT)
 GPIO.setup(12, GPIO.OUT)
