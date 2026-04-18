@@ -93,7 +93,8 @@ class MotorController:
         self.stop()
 
 def main():
-    mc = MotorController()
+    pi = pigpio.pi()
+    mc = MotorController(pi)
     try:
         sequence = [
             ("Forward",     lambda: mc.forward(60),     1.5),
