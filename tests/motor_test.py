@@ -29,14 +29,14 @@ GPIO.cleanup()
 # Motor1E = 12
 
 # EN B of Back
-Motor1A = 6
-Motor1B = 7
-Motor1E = 18
+# Motor1A = 6
+# Motor1B = 7
+# Motor1E = 18
 
 # EN A of Back
-# Motor1A = 4
-# Motor1B = 5
-# Motor1E = 19
+Motor1A = 4
+Motor1B = 5
+Motor1E = 19
  
 def setup():
     GPIO.setwarnings(False)
