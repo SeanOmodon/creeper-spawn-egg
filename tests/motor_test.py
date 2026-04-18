@@ -34,8 +34,8 @@ GPIO.cleanup()
 # Motor1E = 18
 
 # EN A of Back
-Motor1A = 4
-Motor1B = 5
+Motor1A = 5
+Motor1B = 4
 Motor1E = 19
  
 def setup():
