@@ -44,6 +44,10 @@ def setup():
     GPIO.setup(Motor1A,GPIO.OUT)  # All pins as Outputs
     GPIO.setup(Motor1B,GPIO.OUT)
     GPIO.setup(Motor1E,GPIO.OUT)
+    GPIO.setup(Motor2A,GPIO.OUT)  # All pins as Outputs
+    GPIO.setup(Motor2B,GPIO.OUT)
+    GPIO.setup(Motor2E,GPIO.OUT)
+    
  
 def loop():
     # Going forwards
