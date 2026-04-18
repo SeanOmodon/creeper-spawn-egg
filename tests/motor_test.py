@@ -10,8 +10,10 @@ try:
         GPIO.output(13, GPIO.HIGH)
         GPIO.output(12, GPIO.HIGH)
         time.sleep(2)
+        print("High")
         GPIO.output(13, GPIO.LOW)
         GPIO.output(12, GPIO.LOW)
         time.sleep(2)
+        print("Low")
 except KeyboardInterrupt:
     GPIO.cleanup()
