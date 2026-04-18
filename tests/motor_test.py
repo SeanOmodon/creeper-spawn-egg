@@ -18,9 +18,15 @@ GPIO.cleanup()
 # except KeyboardInterrupt:
 #     GPIO.cleanup()
 
-Motor1A = 2
-Motor1B = 3
-Motor1E = 13
+# EN B of Front
+# Motor1A = 2
+# Motor1B = 3
+# Motor1E = 13
+
+# EN A of Front
+Motor1A = 0
+Motor1B = 1
+Motor1E = 12
  
 def setup():
     GPIO.setwarnings(False)
