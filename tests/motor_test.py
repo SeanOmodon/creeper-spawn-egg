@@ -1,6 +1,5 @@
 import RPi.GPIO as GPIO
 import time
-import sleep
 GPIO.setwarnings(False)
 GPIO.cleanup()
 # GPIO.setmode(GPIO.BCM)
@@ -37,14 +36,14 @@ def loop():
     GPIO.output(Motor1E,GPIO.HIGH)
     print("Going forwards")
  
-    sleep(5)
+    time.sleep(5)
     # Going backwards
     GPIO.output(Motor1A,GPIO.LOW)
     GPIO.output(Motor1B,GPIO.HIGH)
     GPIO.output(Motor1E,GPIO.HIGH)
     print("Going backwards")
  
-    sleep(5)
+    time.sleep(5)
     # Stop
     GPIO.output(Motor1E,GPIO.LOW)
     GPIO.output(Motor1B,GPIO.LOW)
