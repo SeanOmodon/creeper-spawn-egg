@@ -52,9 +52,10 @@ def loop():
 def destroy():
     GPIO.cleanup()
 
-if name == 'main':     # Program start from here
-    setup()
-    try:
-            loop()
-    except KeyboardInterrupt:
-        destroy()
+    # Program start from here
+setup()
+try:
+    while True:
+        loop()
+except KeyboardInterrupt:
+    destroy()
