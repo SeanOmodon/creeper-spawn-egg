@@ -8,11 +8,11 @@ Requires: L298N or similar H-bridge wired to pins in config.py
 import time, sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import config
-import pigpio
+import RPi.GPIO as GPIO
 
 class MotorController:
-    def __init__(self, pi):
-        self.pi = pi
+    def __init__(self):
+        GPIO.setmode(GPIO.BCM)
         all_pins = [
             config.MOTOR_FL_1, config.MOTOR_FL_2,
             config.MOTOR_FR_1, config.MOTOR_FR_2,
@@ -22,24 +22,31 @@ class MotorController:
             config.MOTOR_BL_EnA, config.MOTOR_BR_EnB,
         ]
         for pin in all_pins:
-            pi.set_mode(pin, pigpio.OUTPUT)
-            pi.write(pin, 0)
+            GPIO.setup(pin, GPIO.OUT)
+            GPIO.output(pin, GPIO.LOW)
+
+        self.pwm_fl = GPIO.PWM(config.MOTOR_FL_EnB, config.MOTOR_PWM_FREQ)
+        self.pwm_fr = GPIO.PWM(config.MOTOR_FR_EnA, config.MOTOR_PWM_FREQ)
+        self.pwm_bl = GPIO.PWM(config.MOTOR_BL_EnA, config.MOTOR_PWM_FREQ)
+        self.pwm_br = GPIO.PWM(config.MOTOR_BR_EnB, config.MOTOR_PWM_FREQ)
+        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
+            pwm.start(0)
 
     def _set_left(self, fwd, speed):
-        self.pi.write(config.MOTOR_FL_1, 1 if fwd else 0)
-        self.pi.write(config.MOTOR_FL_2, 0 if fwd else 1)
-        self.pi.write(config.MOTOR_BL_1, 1 if fwd else 0)
-        self.pi.write(config.MOTOR_BL_2, 0 if fwd else 1)
-        # Only call hardware_PWM on GPIO 13 — GPIO 19 mirrors it automatically
-        self.pi.hardware_PWM(13, config.MOTOR_PWM_FREQ, int(speed * 10000))
+        GPIO.output(config.MOTOR_FL_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_FL_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_BL_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_BL_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        self.pwm_fl.ChangeDutyCycle(speed)
+        self.pwm_bl.ChangeDutyCycle(speed)
 
     def _set_right(self, fwd, speed):
-        self.pi.write(config.MOTOR_FR_1, 1 if fwd else 0)
-        self.pi.write(config.MOTOR_FR_2, 0 if fwd else 1)
-        self.pi.write(config.MOTOR_BR_1, 1 if fwd else 0)
-        self.pi.write(config.MOTOR_BR_2, 0 if fwd else 1)
-        # Only call hardware_PWM on GPIO 12 — GPIO 18 mirrors it automatically
-        self.pi.hardware_PWM(12, config.MOTOR_PWM_FREQ, int(speed * 10000))
+        GPIO.output(config.MOTOR_FR_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_FR_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_BR_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_BR_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        self.pwm_fr.ChangeDutyCycle(speed)
+        self.pwm_br.ChangeDutyCycle(speed)
 
     def forward(self, speed=60):
         self._set_left(True,  speed)
@@ -50,8 +57,8 @@ class MotorController:
         self._set_right(False, speed)
 
     def stop(self):
-        self.pi.hardware_PWM(12, config.MOTOR_PWM_FREQ, 0)
-        self.pi.hardware_PWM(13, config.MOTOR_PWM_FREQ, 0)
+        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
+            pwm.ChangeDutyCycle(0)
 
     def turn_left(self, speed=50):
         self._set_left(False, speed)
@@ -91,23 +98,25 @@ class MotorController:
 
     def cleanup(self):
         self.stop()
+        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
+            pwm.stop()
+        GPIO.cleanup()
+
 
 def main():
-    pi = pigpio.pi()
-    mc = MotorController(pi)
+    mc = MotorController()
     try:
         sequence = [
-            ("Forward",     lambda: mc.forward(60),     1.5),
-            ("Stop",        lambda: mc.stop(),           0.5),
-            ("Turn left",   lambda: mc.turn_left(50),   1.0),
-            ("Stop",        lambda: mc.stop(),           0.5),
-            ("Turn right",  lambda: mc.turn_right(50),  1.0),
-            ("Stop",        lambda: mc.stop(),           0.5),
-            ("Smooth left", lambda: mc.smooth_left(50),  1.0),
-            ("Stop",        lambda: mc.stop(),           0.5),
-            ("Smooth right", lambda: mc.smooth_right(50),  1.0),
-            ("Stop",        lambda: mc.stop(),           0.5),
-
+            ("Forward",      lambda: mc.forward(60),      1.5),
+            ("Stop",         lambda: mc.stop(),            0.5),
+            ("Turn left",    lambda: mc.turn_left(50),    1.0),
+            ("Stop",         lambda: mc.stop(),            0.5),
+            ("Turn right",   lambda: mc.turn_right(50),   1.0),
+            ("Stop",         lambda: mc.stop(),            0.5),
+            ("Smooth left",  lambda: mc.smooth_left(50),  1.0),
+            ("Stop",         lambda: mc.stop(),            0.5),
+            ("Smooth right", lambda: mc.smooth_right(50), 1.0),
+            ("Stop",         lambda: mc.stop(),            0.5),
         ]
         for label, action, duration in sequence:
             print(f"[Stage 4] {label} for {duration}s...")
