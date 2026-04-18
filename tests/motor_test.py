@@ -19,24 +19,24 @@ GPIO.cleanup()
 #     GPIO.cleanup()
 
 # EN B of Front
-# Motor1A = 2
-# Motor1B = 3
-# Motor1E = 13
+Motor1A = 2
+Motor1B = 3
+Motor1E = 13
 
 # EN A of Front
-# Motor1A = 0
-# Motor1B = 1
-# Motor1E = 12
+Motor2A = 0
+Motor2B = 1
+Motor2E = 12
 
 # EN B of Back
 # Motor1A = 6
 # Motor1B = 7
 # Motor1E = 18
 
-# EN A of Back
-Motor1A = 5
-Motor1B = 4
-Motor1E = 19
+# # EN A of Back
+# Motor1A = 5
+# Motor1B = 4
+# Motor1E = 19
  
 def setup():
     GPIO.setwarnings(False)
@@ -63,6 +63,25 @@ def loop():
     # Stop
     GPIO.output(Motor1E,GPIO.LOW)
     GPIO.output(Motor1B,GPIO.LOW)
+    print("Stop")
+
+    # Going forwards
+    GPIO.output(Motor2A,GPIO.HIGH)
+    GPIO.output(Motor2B,GPIO.LOW)
+    GPIO.output(Motor2E,GPIO.HIGH)
+    print("Going forwards")
+ 
+    time.sleep(5)
+    # Going backwards
+    GPIO.output(Motor2A,GPIO.LOW)
+    GPIO.output(Motor2B,GPIO.HIGH)
+    GPIO.output(Motor2E,GPIO.HIGH)
+    print("Going backwards")
+ 
+    time.sleep(5)
+    # Stop
+    GPIO.output(Motor2E,GPIO.LOW)
+    GPIO.output(Motor2B,GPIO.LOW)
     print("Stop")
 
 def destroy():
