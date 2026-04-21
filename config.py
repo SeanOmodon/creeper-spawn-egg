@@ -29,11 +29,19 @@ ECHO_PIN_FRONT = 8
 ECHO_PIN_BACK = 9
 OBSTACLE_DISTANCE_CM = 30   # stop threshold
 
-# LED
+# LED RGB Strip
 LED_R = 15
 LED_G = 14
 LED_B = 16
 LED_PWM_FREQ = 200
+
+# Creeper Eyes
+
+RED_LED = 17
+
+# Buzzer
+
+BUZZER = 20
 
 # Detection
 HOG_WIN_STRIDE   = (8, 8)
