@@ -6,7 +6,7 @@ Run: python3 proximity_alert.py
 """
 
 import time, sys, os
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import config
 import RPi.GPIO as GPIO
 
