@@ -43,7 +43,7 @@ RED_LED = 17
 # Proximity Test
 
 BUZZER_PIN = 20
-ALERT_DISTANCE_CM   = 30    # Trigger distance
+ALERT_DISTANCE_CM   = 67    # Trigger distance
 ALERT_MIN_INTERVAL   = 0.1   # Fastest beep interval (sec) at very close range
 ALERT_MAX_INTERVAL  = 0.8   # slowest beep interval (sec) at trigger distance
 
