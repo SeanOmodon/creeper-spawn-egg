@@ -28,7 +28,6 @@ from picamera2 import Picamera2
 import onnxruntime as ort
 import numpy as np
 import cv2
-import pigpio
 import RPi.GPIO as GPIO
 
 # ── State constants ────────────────────────────────────────────
@@ -102,35 +101,42 @@ class LEDController:
 
 # ── Motor controller ───────────────────────────────────────────
 class MotorController:
-    def __init__(self, pi):
-        self.pi = pi
-        direction_pins = [
+    def __init__(self):
+        GPIO.setmode(GPIO.BCM)
+        all_pins = [
             config.MOTOR_FL_1, config.MOTOR_FL_2,
             config.MOTOR_FR_1, config.MOTOR_FR_2,
             config.MOTOR_BR_1, config.MOTOR_BR_2,
             config.MOTOR_BL_1, config.MOTOR_BL_2,
+            config.MOTOR_FL_EnB, config.MOTOR_FR_EnA,
+            config.MOTOR_BL_EnA, config.MOTOR_BR_EnB,
         ]
-        for pin in direction_pins:
-            pi.set_mode(pin, pigpio.OUTPUT)
-            pi.write(pin, 0)
+        for pin in all_pins:
+            GPIO.setup(pin, GPIO.OUT)
+            GPIO.output(pin, GPIO.LOW)
+
+        self.pwm_fl = GPIO.PWM(config.MOTOR_FL_EnB, config.MOTOR_PWM_FREQ)
+        self.pwm_fr = GPIO.PWM(config.MOTOR_FR_EnA, config.MOTOR_PWM_FREQ)
+        self.pwm_bl = GPIO.PWM(config.MOTOR_BL_EnA, config.MOTOR_PWM_FREQ)
+        self.pwm_br = GPIO.PWM(config.MOTOR_BR_EnB, config.MOTOR_PWM_FREQ)
+        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
+            pwm.start(0)
 
     def _set_left(self, fwd, speed):
-        self.pi.write(config.MOTOR_FL_1, 1 if fwd else 0)
-        self.pi.write(config.MOTOR_FL_2, 0 if fwd else 1)
-        self.pi.write(config.MOTOR_BL_1, 1 if fwd else 0)
-        self.pi.write(config.MOTOR_BL_2, 0 if fwd else 1)
-        duty = int(speed * 10000)
-        self.pi.hardware_PWM(config.MOTOR_FL_EnB, config.MOTOR_PWM_FREQ, duty)
-        self.pi.hardware_PWM(config.MOTOR_BL_EnA, config.MOTOR_PWM_FREQ, duty)
+        GPIO.output(config.MOTOR_FL_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_FL_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_BL_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_BL_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        self.pwm_fl.ChangeDutyCycle(speed)
+        self.pwm_bl.ChangeDutyCycle(speed)
 
     def _set_right(self, fwd, speed):
-        self.pi.write(config.MOTOR_FR_1, 1 if fwd else 0)
-        self.pi.write(config.MOTOR_FR_2, 0 if fwd else 1)
-        self.pi.write(config.MOTOR_BR_1, 1 if fwd else 0)
-        self.pi.write(config.MOTOR_BR_2, 0 if fwd else 1)
-        duty = int(speed * 10000)
-        self.pi.hardware_PWM(config.MOTOR_FR_EnA, config.MOTOR_PWM_FREQ, duty)
-        self.pi.hardware_PWM(config.MOTOR_BR_EnB, config.MOTOR_PWM_FREQ, duty)
+        GPIO.output(config.MOTOR_FR_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_FR_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_BR_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_BR_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        self.pwm_fr.ChangeDutyCycle(speed)
+        self.pwm_br.ChangeDutyCycle(speed)
 
     def forward(self, speed=60):
         self._set_left(True,  speed)
@@ -141,10 +147,8 @@ class MotorController:
         self._set_right(False, speed)
 
     def stop(self):
-        self.pi.hardware_PWM(config.MOTOR_FL_EnB, config.MOTOR_PWM_FREQ, 0)
-        self.pi.hardware_PWM(config.MOTOR_FR_EnA, config.MOTOR_PWM_FREQ, 0)
-        self.pi.hardware_PWM(config.MOTOR_BL_EnA, config.MOTOR_PWM_FREQ, 0)
-        self.pi.hardware_PWM(config.MOTOR_BR_EnB, config.MOTOR_PWM_FREQ, 0)
+        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
+            pwm.ChangeDutyCycle(0)
 
     def turn_left(self, speed=50):
         self._set_left(False, speed)
@@ -154,36 +158,39 @@ class MotorController:
         self._set_left(True,  speed)
         self._set_right(False, speed)
 
-    def steer(self, offset_x, base_speed=55):
-        """
-        Smooth steering based on pixel offset from centre.
-        Negative offset = person is left  -> slow left side
-        Positive offset = person is right -> slow right side
-        Dead zone of 60px drives straight.
-        """
-        frame_half  = config.CAMERA_WIDTH / 2   # 320px
+    def smooth_left(self, speed=50):
+        self._set_left(True,  speed * 0.5)
+        self._set_right(True, speed)
 
-        if abs(offset_x) < config.DEAD_ZONE:
+    def smooth_right(self, speed=50):
+        self._set_left(True,  speed)
+        self._set_right(True, speed * 0.5)
+
+    def steer(self, offset_x, base_speed=55):
+        dead_zone  = 60
+        frame_half = config.CAMERA_WIDTH / 2
+
+        if abs(offset_x) < dead_zone:
             self.forward(base_speed)
             return
 
-        # Scale offset to 0.0–1.0 beyond dead zone
-        beyond    = abs(offset_x) - config.DEAD_ZONE
-        max_range = frame_half - config.DEAD_ZONE
-        factor    = min(beyond / max_range, 1.0)
-
-        # Slow side gets between base_speed and base_speed * 0.2
+        beyond     = abs(offset_x) - dead_zone
+        max_range  = frame_half - dead_zone
+        factor     = min(beyond / max_range, 1.0)
         slow_speed = base_speed * (1.0 - 0.8 * factor)
 
-        if offset_x < 0:   # person is left
+        if offset_x < 0:
             self._set_left(True,  slow_speed)
             self._set_right(True, base_speed)
-        else:               # person is right
+        else:
             self._set_left(True,  base_speed)
             self._set_right(True, slow_speed)
 
     def cleanup(self):
         self.stop()
+        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
+            pwm.stop()
+        GPIO.cleanup()
 
 
 # ── Ultrasonic ─────────────────────────────────────────────────
