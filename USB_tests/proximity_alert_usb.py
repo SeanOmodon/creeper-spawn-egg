@@ -1,9 +1,9 @@
 """
-Proximity + Person Alert
-Triggers white LED and dramatic buzzer when:
+Proximity + Person Alert — Creeper Edition
+Triggers white LED and creeper hiss when:
   - YOLO detects a person via camera AND
   - Ultrasonic sensor reads within ALERT_DISTANCE_CM
-LED brightness and buzzer speed increase as person gets closer.
+Hiss intensity and LED brightness increase as person gets closer.
 Run: python3 USB_tests/proximity_alert_usb.py
 """
 
@@ -20,17 +20,17 @@ import cv2
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
-GPIO.setup(config.TRIG_PIN,        GPIO.OUT)
-GPIO.setup(config.ECHO_PIN_FRONT,  GPIO.IN)
-GPIO.setup(config.LED_WHITE,       GPIO.OUT)
-GPIO.setup(config.BUZZER_PIN,      GPIO.OUT)
+GPIO.setup(config.TRIG_PIN,       GPIO.OUT)
+GPIO.setup(config.ECHO_PIN_FRONT, GPIO.IN)
+GPIO.setup(config.LED_WHITE,      GPIO.OUT)
+GPIO.setup(config.BUZZER_PIN,     GPIO.OUT)
 
 GPIO.output(config.TRIG_PIN,   GPIO.LOW)
 GPIO.output(config.LED_WHITE,  GPIO.LOW)
 GPIO.output(config.BUZZER_PIN, GPIO.LOW)
 
 pwm_led    = GPIO.PWM(config.LED_WHITE,  200)
-pwm_buzzer = GPIO.PWM(config.BUZZER_PIN, 1000)
+pwm_buzzer = GPIO.PWM(config.BUZZER_PIN, 100)
 pwm_led.start(0)
 pwm_buzzer.start(0)
 
@@ -42,7 +42,7 @@ person_detected = False
 def load_model():
     model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "yolov8n.onnx")
     if not os.path.exists(model_path):
-        print("[Alert] FAIL — yolov8n.onnx not found")
+        print("[Creeper] FAIL — yolov8n.onnx not found")
         sys.exit(1)
     session    = ort.InferenceSession(model_path)
     input_name = session.get_inputs()[0].name
@@ -91,17 +91,17 @@ def ultrasonic_thread():
 # ── Vision thread ──────────────────────────────────────────────
 def vision_thread():
     global person_detected
-    print("[Alert] Loading YOLO model...")
+    print("[Creeper] Loading YOLO model...")
     session, input_name = load_model()
 
-    print("[Alert] Opening camera...")
+    print("[Creeper] Opening camera...")
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  config.CAMERA_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAMERA_HEIGHT)
     cap.set(cv2.CAP_PROP_FPS,          config.CAMERA_FPS)
 
     if not cap.isOpened():
-        print("[Alert] FAIL — could not open camera")
+        print("[Creeper] FAIL — could not open camera")
         sys.exit(1)
 
     while True:
@@ -110,35 +110,67 @@ def vision_thread():
             continue
         person_detected = detect_people(session, input_name, frame)
 
-# ── Alert helpers ──────────────────────────────────────────────
-def get_interval(dist):
-    """Faster blink as person gets closer."""
-    min_dist = 5.0
-    max_dist = float(config.ALERT_DISTANCE_CM)
-    dist     = max(min_dist, min(dist, max_dist))
-    ratio    = (max_dist - dist) / (max_dist - min_dist)
-    return config.ALERT_MAX_INTERVAL - ratio * (
-        config.ALERT_MAX_INTERVAL - config.ALERT_MIN_INTERVAL
-    )
+# ── Creeper hiss ───────────────────────────────────────────────
+# The Minecraft creeper hiss is a descending noise burst —
+# modelled as rapid frequency sweeps from high to low with
+# short silences between bursts, getting faster and louder
+# as the person gets closer.
 
-def get_brightness(dist):
-    """Brighter LED as person gets closer — 30% to 100%."""
-    min_dist = 5.0
-    max_dist = float(config.ALERT_DISTANCE_CM)
-    dist     = max(min_dist, min(dist, max_dist))
-    ratio    = (max_dist - dist) / (max_dist - min_dist)
-    return 30 + ratio * 70
+HISS_STAGES = [
+    # (start_freq, end_freq, duration, steps) — one burst
+    (800,  200, 0.18, 30),
+    (700,  150, 0.15, 25),
+    (600,  100, 0.12, 20),
+    (500,   80, 0.10, 18),
+]
 
-def get_buzzer_freq(dist):
+def play_hiss_burst(start_freq, end_freq, duration, steps, brightness):
+    """Play a single descending frequency sweep — one hiss burst."""
+    step_time = duration / steps
+    for i in range(steps):
+        freq = int(start_freq + (end_freq - start_freq) * (i / steps))
+        freq = max(50, freq)  # buzzer minimum ~50Hz
+        pwm_buzzer.ChangeFrequency(freq)
+        pwm_buzzer.ChangeDutyCycle(40)
+        pwm_led.ChangeDutyCycle(brightness)
+        time.sleep(step_time)
+    pwm_buzzer.ChangeDutyCycle(0)
+    pwm_led.ChangeDutyCycle(0)
+
+def play_creeper_hiss(dist):
     """
-    Dramatic rising pitch as person gets closer.
-    500Hz at trigger distance -> 2500Hz at 5cm
+    Full creeper hiss sequence.
+    Closer distance = more bursts played + faster + brighter.
     """
     min_dist = 5.0
     max_dist = float(config.ALERT_DISTANCE_CM)
     dist     = max(min_dist, min(dist, max_dist))
-    ratio    = (max_dist - dist) / (max_dist - min_dist)
-    return int(500 + ratio * 2000)
+    ratio    = (max_dist - dist) / (max_dist - min_dist)  # 0.0 far, 1.0 close
+
+    # Number of hiss bursts — 1 at far range, up to 4 when very close
+    num_bursts  = max(1, int(1 + ratio * 3))
+
+    # Speed multiplier — closer = faster bursts
+    speed       = 1.0 - ratio * 0.6   # 1.0 far, 0.4 close
+
+    # Brightness — 25% far, 100% close
+    brightness  = int(25 + ratio * 75)
+
+    # Gap between bursts — shorter when closer
+    gap         = 0.12 - ratio * 0.08  # 0.12s far, 0.04s close
+
+    for i in range(num_bursts):
+        stage = HISS_STAGES[min(i, len(HISS_STAGES) - 1)]
+        start_freq, end_freq, duration, steps = stage
+        play_hiss_burst(
+            start_freq,
+            end_freq,
+            duration * speed,
+            steps,
+            brightness
+        )
+        if i < num_bursts - 1:
+            time.sleep(gap)
 
 def alert_off():
     pwm_led.ChangeDutyCycle(0)
@@ -146,51 +178,37 @@ def alert_off():
 
 # ── Main loop ──────────────────────────────────────────────────
 def main():
-    print(f"[Alert] Starting. Trigger distance: {config.ALERT_DISTANCE_CM}cm")
-    print("[Alert] Waiting for camera and sensor to warm up...")
+    print(f"[Creeper] Starting. Trigger distance: {config.ALERT_DISTANCE_CM}cm")
+    print("[Creeper] Waiting for camera and sensor to warm up...")
 
     threading.Thread(target=ultrasonic_thread, daemon=True).start()
     threading.Thread(target=vision_thread,     daemon=True).start()
     time.sleep(3)
 
-    print("[Alert] Running. Ctrl+C to stop.")
+    print("[Creeper] Running. Ctrl+C to stop.")
 
     try:
         while True:
             dist = distance_cm
 
             if dist is None:
-                print("[Alert] Sensor timeout", end="\r")
+                print("[Creeper] Sensor timeout", end="\r")
                 alert_off()
                 time.sleep(0.1)
                 continue
 
-            print(f"[Alert] Distance: {dist:.1f}cm | Person: {person_detected}    ", end="\r")
+            print(f"[Creeper] Distance: {dist:.1f}cm | Person: {person_detected}    ", end="\r")
 
             if person_detected and dist <= config.ALERT_DISTANCE_CM:
-                interval   = get_interval(dist)
-                brightness = get_brightness(dist)
-                freq       = get_buzzer_freq(dist)
-                half       = interval / 2
-
-                # Update buzzer frequency dynamically
-                pwm_buzzer.ChangeFrequency(freq)
-
-                # Flash ON
-                pwm_led.ChangeDutyCycle(brightness)
-                pwm_buzzer.ChangeDutyCycle(50)
-                time.sleep(half)
-
-                # Flash OFF
-                alert_off()
-                time.sleep(half)
-
+                play_creeper_hiss(dist)
+                # Brief pause between hiss cycles
+                time.sleep(0.3)
             else:
                 alert_off()
                 time.sleep(0.1)
 
     except KeyboardInterrupt:
-        print("\n[Alert] Shutting down.")
+        print("\n[Creeper] Shutting down.")
     finally:
         alert_off()
         pwm_led.stop()
