@@ -181,10 +181,10 @@ def main():
     mc = MotorController()
     try:
         t_ultra  = threading.Thread(target=ultrasonic_thread, daemon=True)
-        t_detect = threading.Thread(target=detection_thread,  daemon=True)
-        t_ultra.start()
-        t_detect.start()
-        control_loop(mc)
+        # t_detect = threading.Thread(target=detection_thread,  daemon=True)
+        # t_ultra.start()
+        # t_detect.start()
+        # control_loop(mc)
     except KeyboardInterrupt:
         print("\n[Stage 6] Shutting down.")
     finally:

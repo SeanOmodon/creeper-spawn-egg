@@ -31,7 +31,8 @@ OBSTACLE_DISTANCE_CM = 30   # stop threshold
 
 # LED RGB Strip
 LED_R = 15
-LED_G = 14
+# LED_G = 14
+LED_WHITE = 14
 LED_B = 16
 LED_PWM_FREQ = 200
 
