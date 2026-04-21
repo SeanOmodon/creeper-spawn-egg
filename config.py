@@ -39,9 +39,12 @@ LED_PWM_FREQ = 200
 
 RED_LED = 17
 
-# Buzzer
+# Proximity Test
 
 BUZZER_PIN = 20
+ALERT_DISTANCE_CM   = 30    # Trigger distance
+ALERT_MIN_INERVAL   = 0.1   # Fastest beep interval (sec) at very close range
+ALERT_MAX_INTERVAL  = 0.8   # slowest beep interval (sec) at trigger distance
 
 # Detection
 HOG_WIN_STRIDE   = (8, 8)
