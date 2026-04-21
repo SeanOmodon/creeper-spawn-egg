@@ -1,6 +1,6 @@
 CAMERA_WIDTH    = 640
 CAMERA_HEIGHT   = 480
-CAMERA_FPS      = 30    # Pi 4 handles 30fps fine
+CAMERA_FPS      = 24    # Pi 4 handles 30fps fine
 DEAD_ZONE        = 60       # px offset from center where we still go straight
 RESTART_DISTANCE_CM = 3   # cm — touching the sensor counts as restart
 
