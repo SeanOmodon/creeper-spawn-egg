@@ -41,7 +41,7 @@ RED_LED = 17
 
 # Buzzer
 
-BUZZER = 20
+BUZZER_PIN = 20
 
 # Detection
 HOG_WIN_STRIDE   = (8, 8)
