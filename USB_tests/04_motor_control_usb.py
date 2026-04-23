@@ -48,11 +48,11 @@ class MotorController:
         self.pwm_fr.ChangeDutyCycle(speed)
         self.pwm_br.ChangeDutyCycle(speed)
 
-    def forward(self, speed=60):
+    def forward(self, speed=30):
         self._set_left(True,  speed)
         self._set_right(True, speed)
 
-    def backward(self, speed=60):
+    def backward(self, speed=30):
         self._set_left(False,  speed)
         self._set_right(False, speed)
 
@@ -60,19 +60,19 @@ class MotorController:
         for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
             pwm.ChangeDutyCycle(0)
 
-    def turn_left(self, speed=50):
+    def turn_left(self, speed=30):
         self._set_left(False, speed)
         self._set_right(True, speed)
 
-    def turn_right(self, speed=50):
+    def turn_right(self, speed=30):
         self._set_left(True,  speed)
         self._set_right(False, speed)
 
-    def smooth_left(self, speed=50):
+    def smooth_left(self, speed=30):
         self._set_left(True,  speed * 0.5)
         self._set_right(True, speed)
 
-    def smooth_right(self, speed=50):
+    def smooth_right(self, speed=30):
         self._set_left(True,  speed)
         self._set_right(True, speed * 0.5)
 
@@ -107,16 +107,16 @@ def main():
     mc = MotorController()
     try:
         sequence = [
-            ("Forward",      lambda: mc.forward(60),      1.5),
-            ("Stop",         lambda: mc.stop(),            0.5),
-            ("Turn left",    lambda: mc.turn_left(50),    1.0),
-            ("Stop",         lambda: mc.stop(),            0.5),
-            ("Turn right",   lambda: mc.turn_right(50),   1.0),
-            ("Stop",         lambda: mc.stop(),            0.5),
-            ("Smooth left",  lambda: mc.smooth_left(50),  1.0),
-            ("Stop",         lambda: mc.stop(),            0.5),
-            ("Smooth right", lambda: mc.smooth_right(50), 1.0),
-            ("Stop",         lambda: mc.stop(),            0.5),
+            ("Forward",      lambda: mc.forward(30),      3.0),
+            ("Stop",         lambda: mc.stop(),            1.0),
+            ("Turn left",    lambda: mc.turn_left(30),    3.0),
+            ("Stop",         lambda: mc.stop(),            1.0),
+            ("Turn right",   lambda: mc.turn_right(30),   3.0),
+            ("Stop",         lambda: mc.stop(),            1.0),
+            ("Smooth left",  lambda: mc.smooth_left(30),  3.0),
+            ("Stop",         lambda: mc.stop(),            1.0),
+            ("Smooth right", lambda: mc.smooth_right(30), 3.0),
+            ("Stop",         lambda: mc.stop(),            1.0),
         ]
         for label, action, duration in sequence:
             print(f"[Stage 4] {label} for {duration}s...")
