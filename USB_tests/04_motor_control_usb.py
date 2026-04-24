@@ -109,6 +109,8 @@ def main():
         sequence = [
             ("Forward",      lambda: mc.forward(30),      3.0),
             ("Stop",         lambda: mc.stop(),            1.0),
+            ("Backward",     lambda: mc.backward(30),     3.0),
+            ("Stop",         lambda: mc.stop(),            1.0),
             ("Turn left",    lambda: mc.turn_left(30),    3.0),
             ("Stop",         lambda: mc.stop(),            1.0),
             ("Turn right",   lambda: mc.turn_right(30),   3.0),
