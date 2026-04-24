@@ -69,12 +69,12 @@ class MotorController:
         self._set_right(False, speed)
 
     def smooth_left(self, speed=30):
-        self._set_left(True,  speed * 0.5)
+        self._set_left(True,  speed * 0.3)
         self._set_right(True, speed)
 
     def smooth_right(self, speed=30):
         self._set_left(True,  speed)
-        self._set_right(True, speed * 0.5)
+        self._set_right(True, speed * 0.3)
 
     def steer(self, offset_x, base_speed=55):
         dead_zone  = 60
@@ -107,17 +107,17 @@ def main():
     mc = MotorController()
     try:
         sequence = [
-            ("Forward",      lambda: mc.forward(50),      3.0),
+            ("Forward",      lambda: mc.forward(50),      1.0),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Backward",     lambda: mc.backward(50),     3.0),
+            ("Backward",     lambda: mc.backward(50),     1.0),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Turn left",    lambda: mc.turn_left(50),    3.0),
+            ("Turn left",    lambda: mc.turn_left(50),    1.0),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Turn right",   lambda: mc.turn_right(50),   3.0),
+            ("Turn right",   lambda: mc.turn_right(50),   1.0),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Smooth left",  lambda: mc.smooth_left(60),  3.0),
+            ("Smooth left",  lambda: mc.smooth_left(70),  1.5),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Smooth right", lambda: mc.smooth_right(60), 3.0),
+            ("Smooth right", lambda: mc.smooth_right(70), 1.5),
             ("Stop",         lambda: mc.stop(),            1.0),
         ]
         for label, action, duration in sequence:
