@@ -4,12 +4,12 @@ Run: python3 creeper.py
 
 States:
   IDLE    — wanders randomly, scanning for a person
-  CHASING — moves toward detected person, smooth turning
-  PRIMED  — person within 50cm, creeper hiss + blink white for 1.5s
-  EXPLODE — flashes white rapidly, then freezes
-  FROZEN  — waits for ultrasonic reset (distance ~0cm)
+  CHASING — moves toward detected person, smooth steering
+  PRIMED  — person within 50cm, creeper hiss + blink white
+  EXPLODE — dramatic explosion sound + LED, then freezes
+  FROZEN  — waits for ultrasonic reset (hold hand ~0cm from sensor)
 
-LED: 4x white LEDs on GPIO14
+LED  : 4x white LEDs on GPIO14
 Buzzer: passive buzzer on GPIO20
 Restart: hold hand ~0cm from either ultrasonic sensor
 """
@@ -28,25 +28,45 @@ import numpy as np
 import cv2
 import RPi.GPIO as GPIO
 
-# ── State constants ────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# STATE CONSTANTS
+# Five states the creeper cycles through. The main loop checks
+# the current state every iteration and decides what to do.
+# ──────────────────────────────────────────────────────────────
 IDLE    = "IDLE"
 CHASING = "CHASING"
 PRIMED  = "PRIMED"
 EXPLODE = "EXPLODE"
 FROZEN  = "FROZEN"
 
-# ── Shared state ───────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# SHARED STATE
+# These variables are written by background threads (vision,
+# ultrasonic) and read by the main control loop. Python's GIL
+# makes simple reads/writes safe here without locks.
+# ──────────────────────────────────────────────────────────────
 state           = IDLE
 person_detected = False
-person_offset_x = 0.0
-dist_front      = None
-dist_back       = None
+person_offset_x = 0.0   # px from frame centre — negative=left, positive=right
+dist_front      = None  # cm from front ultrasonic sensor
+dist_back       = None  # cm from back ultrasonic sensor
 
-# ── GPIO init ──────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# GPIO INIT
+# Called once at the top so all classes share the same mode.
+# setwarnings(False) suppresses "channel already in use" noise
+# from previous runs that didn't clean up.
+# ──────────────────────────────────────────────────────────────
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
-# ── LED controller ─────────────────────────────────────────────
+
+# ──────────────────────────────────────────────────────────────
+# LED CONTROLLER
+# Controls the 4x white LEDs on GPIO14 via software PWM.
+# PWM frequency is 200Hz — fast enough to avoid flicker.
+# Brightness is 0–100 duty cycle (0=off, 100=full brightness).
+# ──────────────────────────────────────────────────────────────
 class LEDController:
     def __init__(self):
         GPIO.setup(config.LED_WHITE, GPIO.OUT)
@@ -61,11 +81,13 @@ class LEDController:
         self.pwm.ChangeDutyCycle(brightness)
 
     def flash(self, duration=0.3, brightness=100):
+        """Single flash — used when creeper first spots a person."""
         self.on(brightness)
         time.sleep(duration)
         self.off()
 
     def blink_white(self, duration=1.5, interval=0.2):
+        """Rapid blinking for the PRIMED countdown."""
         deadline = time.time() + duration
         while time.time() < deadline:
             self.on(100)
@@ -73,18 +95,19 @@ class LEDController:
             self.off()
             time.sleep(interval / 2)
 
-    def explode(self, flashes=16, interval=0.08):
-        for i in range(flashes):
-            self.on(100) if i % 2 == 0 else self.off()
-            time.sleep(interval)
-        self.off()
-
     def cleanup(self):
         self.off()
         self.pwm.stop()
 
 
-# ── Buzzer controller ──────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# BUZZER CONTROLLER
+# Controls the passive buzzer on GPIO20 via software PWM.
+# Unlike an active buzzer, a passive buzzer needs PWM to make
+# sound — the frequency of the PWM controls the pitch.
+# This lets us play specific notes and sweep between frequencies
+# to create the creeper hiss and explosion sound effects.
+# ──────────────────────────────────────────────────────────────
 class BuzzerController:
     def __init__(self):
         GPIO.setup(config.BUZZER_PIN, GPIO.OUT)
@@ -93,13 +116,19 @@ class BuzzerController:
         self.pwm.start(0)
 
     def tone(self, freq, duty=40):
-        self.pwm.ChangeFrequency(max(50, freq))
+        """Play a tone at the given frequency (Hz). duty=40 is a good volume."""
+        self.pwm.ChangeFrequency(max(50, freq))  # minimum 50Hz to avoid damage
         self.pwm.ChangeDutyCycle(duty)
 
     def off(self):
         self.pwm.ChangeDutyCycle(0)
 
     def play_hiss_burst(self, start_freq, end_freq, duration, steps, led, brightness):
+        """
+        One descending frequency sweep — sounds like a single 'ssss'.
+        Sweeps from start_freq down to end_freq over the given duration.
+        LED is held on at the given brightness during the burst.
+        """
         step_time = duration / steps
         for i in range(steps):
             freq = int(start_freq + (end_freq - start_freq) * (i / steps))
@@ -110,21 +139,28 @@ class BuzzerController:
         led.off()
 
     def play_creeper_hiss(self, dist, led):
+        """
+        Full Minecraft creeper hiss — multiple descending bursts.
+        The closer the person, the more bursts, faster speed,
+        brighter LED, and shorter gaps between bursts.
+        At 50cm: 1 quiet slow burst.
+        At 5cm:  4 loud fast bursts with almost no gap.
+        """
         min_dist = 5.0
         max_dist = 50.0
         dist     = max(min_dist, min(dist, max_dist))
-        ratio    = (max_dist - dist) / (max_dist - min_dist)
+        ratio    = (max_dist - dist) / (max_dist - min_dist)  # 0=far, 1=close
 
-        num_bursts = max(1, int(1 + ratio * 3))
-        speed      = 1.0 - ratio * 0.6
-        brightness = int(25 + ratio * 75)
-        gap        = 0.12 - ratio * 0.08
+        num_bursts = max(1, int(1 + ratio * 3))   # 1 to 4 bursts
+        speed      = 1.0 - ratio * 0.6            # 1.0=slow, 0.4=fast
+        brightness = int(25 + ratio * 75)          # 25% to 100%
+        gap        = 0.12 - ratio * 0.08           # 0.12s to 0.04s between bursts
 
         stages = [
-            (800, 200, 0.18, 30),
-            (700, 150, 0.15, 25),
-            (600, 100, 0.12, 20),
-            (500,  80, 0.10, 18),
+            (800, 200, 0.18, 30),  # burst 1 — high to low
+            (700, 150, 0.15, 25),  # burst 2 — slightly lower
+            (600, 100, 0.12, 20),  # burst 3 — lower still
+            (500,  80, 0.10, 18),  # burst 4 — deep rumble
         ]
 
         for i in range(num_bursts):
@@ -138,6 +174,10 @@ class BuzzerController:
                 time.sleep(gap)
 
     def play_explosion(self, led):
+        """
+        Explosion sound — rapid alternating high/low tones with LED flashing,
+        dropping in frequency over time like a shockwave dying out.
+        """
         explosion_seq = [
             (800, 0.06), (400, 0.06), (900, 0.05), (300, 0.05),
             (1000, 0.04), (200, 0.04), (1100, 0.03), (150, 0.03),
@@ -156,10 +196,17 @@ class BuzzerController:
         self.pwm.stop()
 
 
-# ── Motor controller ───────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# MOTOR CONTROLLER
+# Controls 4 motors via two L298N drivers using RPi.GPIO
+# software PWM on the enable pins.
+# Left side  = front-left + back-left motors
+# Right side = front-right + back-right motors
+# Direction pins (IN1-IN4) set which way each side spins.
+# Enable pins (EnA, EnB) control speed via PWM duty cycle 0-100.
+# ──────────────────────────────────────────────────────────────
 class MotorController:
     def __init__(self):
-        GPIO.setmode(GPIO.BCM)
         all_pins = [
             config.MOTOR_F_1, config.MOTOR_F_2,
             config.MOTOR_F_3, config.MOTOR_F_4,
@@ -180,14 +227,16 @@ class MotorController:
             pwm.start(0)
 
     def _set_left(self, fwd, speed):
-        GPIO.output(config.MOTOR_F_1, GPIO.LOW if fwd else GPIO.HIGH)
-        GPIO.output(config.MOTOR_F_2, GPIO.HIGH  if fwd else GPIO.LOW)
-        GPIO.output(config.MOTOR_B_3, GPIO.LOW if fwd else GPIO.HIGH)
-        GPIO.output(config.MOTOR_B_4, GPIO.HIGH  if fwd else GPIO.LOW)
+        """Drive left side motors forward or backward at given speed."""
+        GPIO.output(config.MOTOR_F_1, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_F_2, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_B_3, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_B_4, GPIO.HIGH if fwd else GPIO.LOW)
         self.pwm_fl.ChangeDutyCycle(speed)
         self.pwm_bl.ChangeDutyCycle(speed)
 
     def _set_right(self, fwd, speed):
+        """Drive right side motors forward or backward at given speed."""
         GPIO.output(config.MOTOR_F_3, GPIO.HIGH if fwd else GPIO.LOW)
         GPIO.output(config.MOTOR_F_4, GPIO.LOW  if fwd else GPIO.HIGH)
         GPIO.output(config.MOTOR_B_1, GPIO.HIGH if fwd else GPIO.LOW)
@@ -208,33 +257,38 @@ class MotorController:
             pwm.ChangeDutyCycle(0)
 
     def turn_left(self, speed=50):
+        """Tank turn left — left side backward, right side forward."""
         self._set_left(False, speed)
         self._set_right(True, speed)
 
     def turn_right(self, speed=50):
+        """Tank turn right — right side backward, left side forward."""
         self._set_left(True,  speed)
         self._set_right(False, speed)
-    
+
     def smooth_left(self, speed=50):
-        self._set_left(True,  speed * 0)
+        """Gentle left curve — left side stopped, right side forward."""
+        self._set_left(True,  0)
         self._set_right(True, speed)
 
     def smooth_right(self, speed=50):
+        """Gentle right curve — right side stopped, left side forward."""
         self._set_left(True,  speed)
-        self._set_right(True, speed * 0)
+        self._set_right(True, 0)
 
     def steer(self, offset_x, base_speed=55):
+        """
+        Smooth steering toward a detected person.
+        offset_x is how many pixels the person is from the frame centre.
+        Dead zone of 60px drives straight to avoid jitter.
+        Outside dead zone: calls smooth_left or smooth_right.
+        """
         dead_zone  = 60
         frame_half = config.CAMERA_WIDTH / 2
 
         if abs(offset_x) < dead_zone:
             self.forward(base_speed)
             return
-
-        beyond     = abs(offset_x) - dead_zone
-        max_range  = frame_half - dead_zone
-        factor     = min(beyond / max_range, 1.0)
-        slow_speed = base_speed * (1.0 - 0.8 * factor)
 
         if offset_x < 0:
             self.smooth_left(base_speed)
@@ -247,7 +301,14 @@ class MotorController:
             pwm.stop()
 
 
-# ── Ultrasonic ─────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# ULTRASONIC SENSOR
+# _measure_distance fires a 10µs trigger pulse and times how
+# long the echo pin stays HIGH. Distance = time * speed of sound.
+# ultrasonic_thread runs in the background, updating dist_front
+# and dist_back every ~60ms. The small sleep between front and
+# back readings prevents crosstalk between the two sensors.
+# ──────────────────────────────────────────────────────────────
 def _measure_distance(echo_pin, timeout=0.04):
     GPIO.output(config.TRIG_PIN, False)
     time.sleep(0.002)
@@ -285,7 +346,23 @@ def ultrasonic_thread():
         time.sleep(0.05)
 
 
-# ── Vision ─────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# VISION
+# load_model loads the YOLOv8n ONNX model from disk.
+# detect_people runs inference on a single frame:
+#   1. Resize to 320x320 (smaller = faster on Pi)
+#   2. Normalise pixel values to 0.0–1.0
+#   3. Reshape to (1, 3, 320, 320) — batch of 1, RGB channels
+#   4. Run through YOLO
+#   5. Filter results to class 0 (person) above confidence floor
+#   6. Return bounding boxes scaled back to original resolution
+#
+# vision_thread runs in the background, updating person_detected
+# and person_offset_x every FRAME_SKIP frames. The sleep(0.03)
+# gives the CPU breathing room to prevent thermal throttling.
+# ──────────────────────────────────────────────────────────────
+FRAME_SKIP = 5   # run YOLO every 5th frame to reduce CPU load
+
 def load_model():
     model_path = os.path.join(os.path.dirname(__file__), "yolov8n.onnx")
     if not os.path.exists(model_path):
@@ -333,13 +410,20 @@ def vision_thread():
         sys.exit(1)
 
     time.sleep(1)
-    frame_cx = config.CAMERA_WIDTH / 2
+    frame_cx     = config.CAMERA_WIDTH / 2
+    skip_counter = 0
+    boxes        = []
 
     while True:
         ret, frame = cap.read()
         if not ret:
             continue
-        boxes = detect_people(session, input_name, frame)
+
+        skip_counter += 1
+        if skip_counter >= FRAME_SKIP:
+            skip_counter = 0
+            boxes = detect_people(session, input_name, frame)
+
         if boxes:
             x1, y1, x2, y2, conf = boxes[0]
             person_detected = True
@@ -348,8 +432,15 @@ def vision_thread():
             person_detected = False
             person_offset_x = 0.0
 
+        time.sleep(0.03)  # prevents CPU from running at 100%
 
-# ── Idle wandering ─────────────────────────────────────────────
+
+# ──────────────────────────────────────────────────────────────
+# IDLE WANDERING
+# Called repeatedly while in IDLE state. Picks a random action
+# and runs it for a random duration before returning, so the
+# creeper slowly scans the environment looking for a person.
+# ──────────────────────────────────────────────────────────────
 def idle_wander(mc):
     action   = random.choice(["forward", "turn_left", "turn_right", "stop"])
     duration = random.uniform(0.5, 2.0)
@@ -364,7 +455,13 @@ def idle_wander(mc):
     time.sleep(duration)
 
 
-# ── Restart check ──────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# RESTART CHECK
+# After exploding the creeper freezes until someone holds their
+# hand very close (~0cm) to either ultrasonic sensor.
+# RESTART_DISTANCE_CM is set low enough to require deliberate
+# contact rather than just walking past.
+# ──────────────────────────────────────────────────────────────
 RESTART_DISTANCE_CM = 3
 
 def check_restart():
@@ -375,7 +472,19 @@ def check_restart():
     return False
 
 
-# ── Main loop ──────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# MAIN LOOP
+# Initialises all hardware, starts background threads, then
+# runs the state machine in a tight loop.
+#
+# IDLE    → wanders randomly, checks for person each cycle
+# CHASING → steers toward person, checks distance each cycle
+# PRIMED  → stops, plays hiss, blinks, then transitions
+# EXPLODE → plays explosion sequence, then transitions
+# FROZEN  → waits for sensor touch to restart
+#
+# Ctrl+C triggers cleanup of all GPIO and PWM resources.
+# ──────────────────────────────────────────────────────────────
 def main():
     global state
 
@@ -399,7 +508,6 @@ def main():
                 led.off()
                 buzzer.off()
                 idle_wander(mc)
-
                 if person_detected:
                     print("[Creeper] Person detected — CHASING")
                     led.flash(duration=0.3, brightness=100)
@@ -445,7 +553,6 @@ def main():
                 mc.stop()
                 led.off()
                 buzzer.off()
-
                 if check_restart():
                     print("[Creeper] Restart triggered — IDLE")
                     time.sleep(1)
