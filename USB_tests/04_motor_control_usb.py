@@ -107,17 +107,17 @@ def main():
     mc = MotorController()
     try:
         sequence = [
-            ("Forward",      lambda: mc.forward(30),      3.0),
+            ("Forward",      lambda: mc.forward(50),      3.0),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Backward",     lambda: mc.backward(30),     3.0),
+            ("Backward",     lambda: mc.backward(50),     3.0),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Turn left",    lambda: mc.turn_left(30),    3.0),
+            ("Turn left",    lambda: mc.turn_left(50),    3.0),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Turn right",   lambda: mc.turn_right(30),   3.0),
+            ("Turn right",   lambda: mc.turn_right(50),   3.0),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Smooth left",  lambda: mc.smooth_left(30),  3.0),
+            ("Smooth left",  lambda: mc.smooth_left(50),  3.0),
             ("Stop",         lambda: mc.stop(),            1.0),
-            ("Smooth right", lambda: mc.smooth_right(30), 3.0),
+            ("Smooth right", lambda: mc.smooth_right(50), 3.0),
             ("Stop",         lambda: mc.stop(),            1.0),
         ]
         for label, action, duration in sequence:
