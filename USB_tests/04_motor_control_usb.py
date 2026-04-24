@@ -27,9 +27,9 @@ class MotorController:
 
         self.pwm_fl = GPIO.PWM(config.MOTOR_F_EnA, config.MOTOR_PWM_FREQ)
         self.pwm_fr = GPIO.PWM(config.MOTOR_F_EnB, config.MOTOR_PWM_FREQ)
-        self.pwm_bl = GPIO.PWM(config.MOTOR_B_EnA, config.MOTOR_PWM_FREQ)
-        self.pwm_br = GPIO.PWM(config.MOTOR_B_EnB, config.MOTOR_PWM_FREQ)
-        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
+        self.pwm_br = GPIO.PWM(config.MOTOR_B_EnA, config.MOTOR_PWM_FREQ)
+        self.pwm_bl = GPIO.PWM(config.MOTOR_B_EnB, config.MOTOR_PWM_FREQ)
+        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_br, self.pwm_bl]:
             pwm.start(0)
 
     def _set_left(self, fwd, speed):
