@@ -225,6 +225,7 @@ class MotorController:
         self.pwm_bl = GPIO.PWM(config.MOTOR_B_EnB, config.MOTOR_PWM_FREQ)
         for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_br, self.pwm_bl]:
             pwm.start(0)
+            time.sleep(0.05)
 
     def _set_left(self, fwd, speed):
         """Drive left side motors forward or backward at given speed."""
@@ -529,6 +530,8 @@ def main():
 
     print("[Creeper] Warming up...")
     time.sleep(2)
+    mc.stop()
+    time.sleep(0.5)
     print("[Creeper] Running. State: IDLE")
 
     try:
