@@ -159,38 +159,39 @@ class BuzzerController:
 # ── Motor controller ───────────────────────────────────────────
 class MotorController:
     def __init__(self):
+        GPIO.setmode(GPIO.BCM)
         all_pins = [
-            config.MOTOR_FL_1, config.MOTOR_FL_2,
-            config.MOTOR_FR_1, config.MOTOR_FR_2,
-            config.MOTOR_BR_1, config.MOTOR_BR_2,
-            config.MOTOR_BL_1, config.MOTOR_BL_2,
-            config.MOTOR_FL_EnB, config.MOTOR_FR_EnA,
-            config.MOTOR_BL_EnA, config.MOTOR_BR_EnB,
+            config.MOTOR_F_1, config.MOTOR_F_2,
+            config.MOTOR_F_3, config.MOTOR_F_4,
+            config.MOTOR_B_1, config.MOTOR_B_2,
+            config.MOTOR_B_3, config.MOTOR_B_4,
+            config.MOTOR_F_EnA, config.MOTOR_F_EnB,
+            config.MOTOR_B_EnA, config.MOTOR_B_EnB,
         ]
         for pin in all_pins:
             GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.LOW)
 
-        self.pwm_fl = GPIO.PWM(config.MOTOR_FL_EnB, config.MOTOR_PWM_FREQ)
-        self.pwm_fr = GPIO.PWM(config.MOTOR_FR_EnA, config.MOTOR_PWM_FREQ)
-        self.pwm_bl = GPIO.PWM(config.MOTOR_BL_EnA, config.MOTOR_PWM_FREQ)
-        self.pwm_br = GPIO.PWM(config.MOTOR_BR_EnB, config.MOTOR_PWM_FREQ)
+        self.pwm_fl = GPIO.PWM(config.MOTOR_F_EnA, config.MOTOR_PWM_FREQ)
+        self.pwm_fr = GPIO.PWM(config.MOTOR_F_EnB, config.MOTOR_PWM_FREQ)
+        self.pwm_bl = GPIO.PWM(config.MOTOR_B_EnA, config.MOTOR_PWM_FREQ)
+        self.pwm_br = GPIO.PWM(config.MOTOR_B_EnB, config.MOTOR_PWM_FREQ)
         for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
             pwm.start(0)
 
     def _set_left(self, fwd, speed):
-        GPIO.output(config.MOTOR_FL_1, GPIO.HIGH if fwd else GPIO.LOW)
-        GPIO.output(config.MOTOR_FL_2, GPIO.LOW  if fwd else GPIO.HIGH)
-        GPIO.output(config.MOTOR_BL_1, GPIO.HIGH if fwd else GPIO.LOW)
-        GPIO.output(config.MOTOR_BL_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_F_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_F_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_B_3, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_B_4, GPIO.LOW  if fwd else GPIO.HIGH)
         self.pwm_fl.ChangeDutyCycle(speed)
         self.pwm_bl.ChangeDutyCycle(speed)
 
     def _set_right(self, fwd, speed):
-        GPIO.output(config.MOTOR_FR_1, GPIO.HIGH if fwd else GPIO.LOW)
-        GPIO.output(config.MOTOR_FR_2, GPIO.LOW  if fwd else GPIO.HIGH)
-        GPIO.output(config.MOTOR_BR_1, GPIO.HIGH if fwd else GPIO.LOW)
-        GPIO.output(config.MOTOR_BR_2, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_F_3, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_F_4, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_B_1, GPIO.HIGH if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_B_2, GPIO.LOW  if fwd else GPIO.HIGH)
         self.pwm_fr.ChangeDutyCycle(speed)
         self.pwm_br.ChangeDutyCycle(speed)
 
