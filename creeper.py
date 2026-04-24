@@ -174,16 +174,16 @@ class MotorController:
 
         self.pwm_fl = GPIO.PWM(config.MOTOR_F_EnA, config.MOTOR_PWM_FREQ)
         self.pwm_fr = GPIO.PWM(config.MOTOR_F_EnB, config.MOTOR_PWM_FREQ)
-        self.pwm_bl = GPIO.PWM(config.MOTOR_B_EnA, config.MOTOR_PWM_FREQ)
-        self.pwm_br = GPIO.PWM(config.MOTOR_B_EnB, config.MOTOR_PWM_FREQ)
-        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
+        self.pwm_br = GPIO.PWM(config.MOTOR_B_EnA, config.MOTOR_PWM_FREQ)
+        self.pwm_bl = GPIO.PWM(config.MOTOR_B_EnB, config.MOTOR_PWM_FREQ)
+        for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_br, self.pwm_bl]:
             pwm.start(0)
 
     def _set_left(self, fwd, speed):
-        GPIO.output(config.MOTOR_F_1, GPIO.HIGH if fwd else GPIO.LOW)
-        GPIO.output(config.MOTOR_F_2, GPIO.LOW  if fwd else GPIO.HIGH)
-        GPIO.output(config.MOTOR_B_3, GPIO.HIGH if fwd else GPIO.LOW)
-        GPIO.output(config.MOTOR_B_4, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_F_1, GPIO.LOW if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_F_2, GPIO.HIGH  if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_B_3, GPIO.LOW if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_B_4, GPIO.HIGH  if fwd else GPIO.LOW)
         self.pwm_fl.ChangeDutyCycle(speed)
         self.pwm_bl.ChangeDutyCycle(speed)
 
@@ -214,6 +214,14 @@ class MotorController:
     def turn_right(self, speed=50):
         self._set_left(True,  speed)
         self._set_right(False, speed)
+    
+    def smooth_left(self, speed=50):
+        self._set_left(True,  speed * 0)
+        self._set_right(True, speed)
+
+    def smooth_right(self, speed=50):
+        self._set_left(True,  speed)
+        self._set_right(True, speed * 0)
 
     def steer(self, offset_x, base_speed=55):
         dead_zone  = 60
@@ -229,11 +237,9 @@ class MotorController:
         slow_speed = base_speed * (1.0 - 0.8 * factor)
 
         if offset_x < 0:
-            self._set_left(True,  slow_speed)
-            self._set_right(True, base_speed)
+            self.smooth_left(base_speed)
         else:
-            self._set_left(True,  base_speed)
-            self._set_right(True, slow_speed)
+            self.smooth_right(base_speed)
 
     def cleanup(self):
         self.stop()
