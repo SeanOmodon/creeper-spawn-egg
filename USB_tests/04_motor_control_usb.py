@@ -69,12 +69,12 @@ class MotorController:
         self._set_right(False, speed)
 
     def smooth_left(self, speed=30):
-        self._set_left(True,  speed * 0.3)
+        self._set_left(True,  speed * 0)
         self._set_right(True, speed)
 
     def smooth_right(self, speed=30):
         self._set_left(True,  speed)
-        self._set_right(True, speed * 0.3)
+        self._set_right(True, speed * 0)
 
     def steer(self, offset_x, base_speed=55):
         dead_zone  = 60
