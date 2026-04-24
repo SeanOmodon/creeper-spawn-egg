@@ -33,10 +33,10 @@ class MotorController:
             pwm.start(0)
 
     def _set_left(self, fwd, speed):
-        GPIO.output(config.MOTOR_F_1, GPIO.HIGH if fwd else GPIO.LOW)
-        GPIO.output(config.MOTOR_F_2, GPIO.LOW  if fwd else GPIO.HIGH)
-        GPIO.output(config.MOTOR_B_3, GPIO.HIGH if fwd else GPIO.LOW)
-        GPIO.output(config.MOTOR_B_4, GPIO.LOW  if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_F_1, GPIO.LOW if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_F_2, GPIO.HIGH  if fwd else GPIO.LOW)
+        GPIO.output(config.MOTOR_B_3, GPIO.LOW if fwd else GPIO.HIGH)
+        GPIO.output(config.MOTOR_B_4, GPIO.HIGH  if fwd else GPIO.LOW)
         self.pwm_fl.ChangeDutyCycle(speed)
         self.pwm_bl.ChangeDutyCycle(speed)
 
