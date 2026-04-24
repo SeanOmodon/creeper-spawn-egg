@@ -437,22 +437,53 @@ def vision_thread():
 
 # ──────────────────────────────────────────────────────────────
 # IDLE WANDERING
-# Called repeatedly while in IDLE state. Picks a random action
-# and runs it for a random duration before returning, so the
-# creeper slowly scans the environment looking for a person.
+# Wanders randomly but checks the front and back ultrasonic
+# sensors before each move to avoid driving into obstacles.
+# If an obstacle is detected in the intended direction, it
+# turns away instead of continuing forward/backward.
 # ──────────────────────────────────────────────────────────────
+
 def idle_wander(mc):
+    front_blocked = dist_front is not None and dist_front < IDLE_OBSTACLE_CM
+    back_blocked  = dist_back  is not None and dist_back  < IDLE_OBSTACLE_CM
+
+    # Pick a random action but override if that direction is blocked
     action   = random.choice(["forward", "turn_left", "turn_right", "stop"])
     duration = random.uniform(0.5, 2.0)
+
+    if action == "forward" and front_blocked:
+        # Something ahead — turn instead
+        action = random.choice(["turn_left", "turn_right"])
+        print("[Idle] Front blocked — turning instead")
+
+    elif action == "backward" and back_blocked:
+        # Something behind — turn instead
+        action = random.choice(["turn_left", "turn_right"])
+        print("[Idle] Back blocked — turning instead")
+
     if action == "forward":
         mc.forward(40)
+    elif action == "backward":
+        mc.backward(40)
     elif action == "turn_left":
         mc.turn_left(40)
     elif action == "turn_right":
         mc.turn_right(40)
     else:
         mc.stop()
-    time.sleep(duration)
+
+    # Check sensors mid-move and stop early if obstacle appears
+    deadline = time.time() + duration
+    while time.time() < deadline:
+        if dist_front is not None and dist_front < IDLE_OBSTACLE_CM and action == "forward":
+            print("[Idle] Obstacle detected mid-move — stopping")
+            mc.stop()
+            break
+        if dist_back is not None and dist_back < IDLE_OBSTACLE_CM and action == "backward":
+            print("[Idle] Obstacle detected mid-move — stopping")
+            mc.stop()
+            break
+        time.sleep(0.05)
 
 
 # ──────────────────────────────────────────────────────────────
