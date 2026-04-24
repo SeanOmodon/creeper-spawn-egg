@@ -444,8 +444,8 @@ def vision_thread():
 # ──────────────────────────────────────────────────────────────
 
 def idle_wander(mc):
-    front_blocked = dist_front is not None and dist_front < IDLE_OBSTACLE_CM
-    back_blocked  = dist_back  is not None and dist_back  < IDLE_OBSTACLE_CM
+    front_blocked = dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM
+    back_blocked  = dist_back  is not None and dist_back  < config.IDLE_OBSTACLE_CM
 
     # Pick a random action but override if that direction is blocked
     action   = random.choice(["forward", "turn_left", "turn_right", "stop"])
@@ -475,11 +475,11 @@ def idle_wander(mc):
     # Check sensors mid-move and stop early if obstacle appears
     deadline = time.time() + duration
     while time.time() < deadline:
-        if dist_front is not None and dist_front < IDLE_OBSTACLE_CM and action == "forward":
+        if dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM and action == "forward":
             print("[Idle] Obstacle detected mid-move — stopping")
             mc.stop()
             break
-        if dist_back is not None and dist_back < IDLE_OBSTACLE_CM and action == "backward":
+        if dist_back is not None and dist_back < config.IDLE_OBSTACLE_CM and action == "backward":
             print("[Idle] Obstacle detected mid-move — stopping")
             mc.stop()
             break
