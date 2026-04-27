@@ -336,15 +336,18 @@ def _measure_distance(echo_pin, timeout=0.04):
 
 def ultrasonic_thread():
     global dist_front, dist_back
-    GPIO.setup(config.TRIG_PIN,       GPIO.OUT)
-    GPIO.setup(config.ECHO_PIN_FRONT, GPIO.IN)
-    GPIO.setup(config.ECHO_PIN_BACK,  GPIO.IN)
+    try:
+        GPIO.setup(config.TRIG_PIN,       GPIO.OUT)
+        GPIO.setup(config.ECHO_PIN_FRONT, GPIO.IN)
+        GPIO.setup(config.ECHO_PIN_BACK,  GPIO.IN)
 
-    while True:
-        dist_front = _measure_distance(config.ECHO_PIN_FRONT)
-        time.sleep(0.01)
-        dist_back  = _measure_distance(config.ECHO_PIN_BACK)
-        time.sleep(0.05)
+        while True:
+            dist_front = _measure_distance(config.ECHO_PIN_FRONT)
+            time.sleep(0.01)
+            dist_back  = _measure_distance(config.ECHO_PIN_BACK)
+            time.sleep(0.05)
+    except Exception as e:
+        print(f"[Ultrasonic] THREAD CRASHED: {e}")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -397,43 +400,43 @@ def detect_people(session, input_name, bgr):
 
 def vision_thread():
     global person_detected, person_offset_x
-    print("[Vision] Loading YOLO model...")
-    session, input_name = load_model()
+    try:
+        print("[Vision] Loading YOLO model...")
+        session, input_name = load_model()
 
-    print("[Vision] Opening USB camera...")
-    cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  config.CAMERA_WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAMERA_HEIGHT)
-    cap.set(cv2.CAP_PROP_FPS,          config.CAMERA_FPS)
+        print("[Vision] Opening USB camera...")
+        cap = cv2.VideoCapture(0)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH,  config.CAMERA_WIDTH)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAMERA_HEIGHT)
+        cap.set(cv2.CAP_PROP_FPS,          config.CAMERA_FPS)
 
-    if not cap.isOpened():
-        print("[Vision] FAIL — could not open camera")
-        sys.exit(1)
+        if not cap.isOpened():
+            print("[Vision] FAIL — could not open camera")
+            sys.exit(1)
 
-    time.sleep(1)
-    frame_cx     = config.CAMERA_WIDTH / 2
-    skip_counter = 0
-    boxes        = []
+        time.sleep(1)
+        frame_cx     = config.CAMERA_WIDTH / 2
+        skip_counter = 0
+        boxes        = []
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            continue
-
-        skip_counter += 1
-        if skip_counter >= FRAME_SKIP:
-            skip_counter = 0
-            boxes = detect_people(session, input_name, frame)
-
-        if boxes:
-            x1, y1, x2, y2, conf = boxes[0]
-            person_detected = True
-            person_offset_x = ((x1 + x2) / 2) - frame_cx
-        else:
-            person_detected = False
-            person_offset_x = 0.0
-
-        time.sleep(0.05)  # prevents CPU from running at 100%
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                continue
+            skip_counter += 1
+            if skip_counter >= FRAME_SKIP:
+                skip_counter = 0
+                boxes = detect_people(session, input_name, frame)
+            if boxes:
+                x1, y1, x2, y2, conf = boxes[0]
+                person_detected = True
+                person_offset_x = ((x1 + x2) / 2) - frame_cx
+            else:
+                person_detected = False
+                person_offset_x = 0.0
+            time.sleep(0.05)
+    except Exception as e:
+        print(f"[Vision] THREAD CRASHED: {e}")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -542,64 +545,68 @@ def main():
 
     try:
         while True:
+            try:
+                # ── IDLE ──────────────────────────────────────────
+                if state == IDLE:
+                    led.off()
+                    buzzer.off()
+                    idle_wander(mc)
+                    print("[Creeper] Scanning for people...")
+                    if person_detected:
+                        print("[Creeper] Person detected — CHASING")
+                        led.flash(duration=0.3, brightness=100)
+                        state = CHASING
 
-            # ── IDLE ──────────────────────────────────────────
-            if state == IDLE:
-                led.off()
-                buzzer.off()
-                idle_wander(mc)
-                print("[Creeper] Scanning for people...")
-                if person_detected:
-                    print("[Creeper] Person detected — CHASING")
-                    led.flash(duration=0.3, brightness=100)
-                    state = CHASING
+                # ── CHASING ───────────────────────────────────────
+                elif state == CHASING:
+                    if not person_detected:
+                        print("[Creeper] Lost person — IDLE")
+                        mc.stop()
+                        state = IDLE
+                        continue
 
-            # ── CHASING ───────────────────────────────────────
-            elif state == CHASING:
-                if not person_detected:
-                    print("[Creeper] Lost person — IDLE")
+                    if dist_front is not None and dist_front <= 50:
+                        print("[Creeper] Person within 50cm — PRIMED")
+                        mc.stop()
+                        state = PRIMED
+                        continue
+
+                    mc.steer(person_offset_x, base_speed=30)
+                    time.sleep(0.05)
+
+                # ── PRIMED ────────────────────────────────────────
+                elif state == PRIMED:
                     mc.stop()
-                    state = IDLE
-                    continue
+                    print("[Creeper] Hissing...")
+                    dist = dist_front if dist_front is not None else 50
+                    buzzer.play_creeper_hiss(dist, led)
+                    time.sleep(0.2)
+                    led.blink_white(duration=1.5, interval=0.2)
+                    print("[Creeper] EXPLODING")
+                    state = EXPLODE
 
-                if dist_front is not None and dist_front <= 50:
-                    print("[Creeper] Person within 50cm — PRIMED")
+                # ── EXPLODE ───────────────────────────────────────
+                elif state == EXPLODE:
                     mc.stop()
-                    state = PRIMED
-                    continue
+                    buzzer.play_explosion(led)
+                    print("[Creeper] Frozen. Touch a sensor to restart.")
+                    state = FROZEN
 
-                mc.steer(person_offset_x, base_speed=30)
-                time.sleep(0.05)
-
-            # ── PRIMED ────────────────────────────────────────
-            elif state == PRIMED:
+                # ── FROZEN ────────────────────────────────────────
+                elif state == FROZEN:
+                    mc.stop()
+                    led.off()
+                    buzzer.off()
+                    if check_restart():
+                        print("[Creeper] Restart triggered — IDLE")
+                        time.sleep(1)
+                        state = IDLE
+                    else:
+                        time.sleep(0.1)
+            except Exception as e:
+                print(f"[Main] Exception in state {state}: {e}")
                 mc.stop()
-                print("[Creeper] Hissing...")
-                dist = dist_front if dist_front is not None else 50
-                buzzer.play_creeper_hiss(dist, led)
-                time.sleep(0.2)
-                led.blink_white(duration=1.5, interval=0.2)
-                print("[Creeper] EXPLODING")
-                state = EXPLODE
-
-            # ── EXPLODE ───────────────────────────────────────
-            elif state == EXPLODE:
-                mc.stop()
-                buzzer.play_explosion(led)
-                print("[Creeper] Frozen. Touch a sensor to restart.")
-                state = FROZEN
-
-            # ── FROZEN ────────────────────────────────────────
-            elif state == FROZEN:
-                mc.stop()
-                led.off()
-                buzzer.off()
-                if check_restart():
-                    print("[Creeper] Restart triggered — IDLE")
-                    time.sleep(1)
-                    state = IDLE
-                else:
-                    time.sleep(0.1)
+                time.sleep(0.5)
 
     except KeyboardInterrupt:
         print("\n[Creeper] Shutting down.")
