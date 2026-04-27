@@ -448,40 +448,40 @@ def idle_wander(mc):
     front_blocked = dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM
     back_blocked  = dist_back  is not None and dist_back  < config.IDLE_OBSTACLE_CM
 
-    # Pick a random action but override if that direction is blocked
     action   = random.choice(["forward", "turn_left", "turn_right", "stop"])
     duration = random.uniform(0.5, 2.0)
 
     if action == "forward" and front_blocked:
-        # Something ahead — turn instead
         action = random.choice(["turn_left", "turn_right"])
-        print("[Idle] Front blocked — turning instead")
-
     elif action == "backward" and back_blocked:
-        # Something behind — turn instead
         action = random.choice(["turn_left", "turn_right"])
-        print("[Idle] Back blocked — turning instead")
 
+    # Always stop briefly before changing direction — reduces current spike
+    mc.stop()
+    time.sleep(0.5)
+
+    # Ramp up speed gradually instead of jumping straight to full speed
     if action == "forward":
-        mc.forward(40)
-    elif action == "backward":
-        mc.backward(40)
+        for speed in range(10, 26, 5):
+            mc.forward(speed)
+            time.sleep(0.05)
     elif action == "turn_left":
-        mc.turn_left(40)
+        for speed in range(10, 26, 5):
+            mc.turn_left(speed)
+            time.sleep(0.05)
     elif action == "turn_right":
-        mc.turn_right(40)
+        for speed in range(10, 26, 5):
+            mc.turn_right(speed)
+            time.sleep(0.05)
     else:
         mc.stop()
 
-    # Check sensors mid-move and stop early if obstacle appears
     deadline = time.time() + duration
     while time.time() < deadline:
         if dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM and action == "forward":
-            print("[Idle] Obstacle detected mid-move — stopping")
             mc.stop()
             break
         if dist_back is not None and dist_back < config.IDLE_OBSTACLE_CM and action == "backward":
-            print("[Idle] Obstacle detected mid-move — stopping")
             mc.stop()
             break
         time.sleep(0.05)
