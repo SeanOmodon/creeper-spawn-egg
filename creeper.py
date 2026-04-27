@@ -60,6 +60,9 @@ dist_back       = None  # cm from back ultrasonic sensor
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
+def log(msg):
+    with open("/home/creepah/creeper_log.txt", "a") as f:
+        f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
 
 # ──────────────────────────────────────────────────────────────
 # LED CONTROLLER
@@ -333,6 +336,23 @@ def _measure_distance(echo_pin, timeout=0.04):
 
     return (pulse_end - pulse_start) * 17150
 
+def _averaged_distance(echo_pin, samples=3):
+    """
+    Takes multiple readings and returns the median.
+    Filters out spurious spikes from electrical noise.
+    None readings are ignored — if all readings fail, returns None.
+    """
+    readings = []
+    for _ in range(samples):
+        dist = _measure_distance(echo_pin)
+        if dist is not None:
+            readings.append(dist)
+        time.sleep(0.01)
+
+    if not readings:
+        return None
+    readings.sort()
+    return readings[len(readings) // 2]  # median
 
 def ultrasonic_thread():
     global dist_front, dist_back
@@ -342,9 +362,9 @@ def ultrasonic_thread():
         GPIO.setup(config.ECHO_PIN_BACK,  GPIO.IN)
 
         while True:
-            dist_front = _measure_distance(config.ECHO_PIN_FRONT)
+            dist_front = _averaged_distance(config.ECHO_PIN_FRONT, samples=3)
             time.sleep(0.01)
-            dist_back  = _measure_distance(config.ECHO_PIN_BACK)
+            dist_back  = _averaged_distance(config.ECHO_PIN_BACK,  samples=3)
             time.sleep(0.05)
     except Exception as e:
         print(f"[Ultrasonic] THREAD CRASHED: {e}")
@@ -434,6 +454,7 @@ def vision_thread():
             else:
                 person_detected = False
                 person_offset_x = 0.0
+            log(f"Vision: person={person_detected} offset={person_offset_x:.0f}")
             time.sleep(0.05)
     except Exception as e:
         print(f"[Vision] THREAD CRASHED: {e}")
@@ -459,6 +480,7 @@ def idle_wander(mc):
     elif action == "backward" and back_blocked:
         action = random.choice(["forward", "turn_left", "turn_right"])
 
+    log(f"Idle: {action} for {duration:.1f}s")
     print(f"[Idle] Action: {action}, Duration: {duration:.1f}s, Front: {dist_front}cm, Back: {dist_back}cm")    
 
     # Always stop briefly before changing direction — reduces current spike
@@ -546,6 +568,7 @@ def main():
     try:
         while True:
             try:
+                log(f"State: {state}")
                 # ── IDLE ──────────────────────────────────────────
                 if state == IDLE:
                     led.off()
