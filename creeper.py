@@ -295,9 +295,9 @@ class MotorController:
             return
 
         if offset_x < 0:
-            self.smooth_left(base_speed)
-        else:
             self.smooth_right(base_speed)
+        else:
+            self.smooth_left(base_speed)
 
     def cleanup(self):
         self.stop()
