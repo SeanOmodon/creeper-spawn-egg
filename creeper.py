@@ -336,7 +336,7 @@ def _measure_distance(echo_pin, timeout=0.04):
 
     return (pulse_end - pulse_start) * 17150
 
-def _averaged_distance(echo_pin, samples=3):
+def _averaged_distance(echo_pin, samples=5):
     """
     Takes multiple readings and returns the median.
     Filters out spurious spikes from electrical noise.
@@ -362,9 +362,9 @@ def ultrasonic_thread():
         GPIO.setup(config.ECHO_PIN_BACK,  GPIO.IN)
 
         while True:
-            dist_front = _averaged_distance(config.ECHO_PIN_FRONT, samples=3)
+            dist_front = _averaged_distance(config.ECHO_PIN_FRONT, samples=5)
             time.sleep(0.01)
-            dist_back  = _averaged_distance(config.ECHO_PIN_BACK,  samples=3)
+            dist_back  = _averaged_distance(config.ECHO_PIN_BACK,  samples=5)
             time.sleep(0.05)
     except Exception as e:
         print(f"[Ultrasonic] THREAD CRASHED: {e}")
