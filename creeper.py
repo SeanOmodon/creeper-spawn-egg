@@ -260,13 +260,13 @@ class MotorController:
         for pwm in [self.pwm_fl, self.pwm_fr, self.pwm_bl, self.pwm_br]:
             pwm.ChangeDutyCycle(0)
 
-    def turn_left(self, speed=50):
-        """Tank turn left — left side backward, right side forward."""
+    def turn_right(self, speed=50):
+        """Tank turn right — right side backward, left side forward."""
         self._set_left(False, speed)
         self._set_right(True, speed)
 
-    def turn_right(self, speed=50):
-        """Tank turn right — right side backward, left side forward."""
+    def turn_left(self, speed=50):
+        """Tank turn left — left side backward, right side forward."""
         self._set_left(True,  speed)
         self._set_right(False, speed)
 
