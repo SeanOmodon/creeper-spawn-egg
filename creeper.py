@@ -455,7 +455,7 @@ def vision_thread():
                 person_detected = False
                 person_offset_x = 0.0
             log(f"Vision: person={person_detected} offset={person_offset_x:.0f}")
-            time.sleep(0.05)
+            time.sleep(0.1)
     except Exception as e:
         print(f"[Vision] THREAD CRASHED: {e}")
 
