@@ -542,6 +542,7 @@ def main():
                 led.off()
                 buzzer.off()
                 idle_wander(mc)
+                print("[Creeper] Scanning for people...")
                 if person_detected:
                     print("[Creeper] Person detected — CHASING")
                     led.flash(duration=0.3, brightness=100)
