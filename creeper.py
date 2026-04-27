@@ -456,6 +456,8 @@ def idle_wander(mc):
     elif action == "backward" and back_blocked:
         action = random.choice(["forward", "turn_left", "turn_right"])
 
+    print(f"[Idle] Action: {action}, Duration: {duration:.1f}s, Front: {dist_front}cm, Back: {dist_back}cm")    
+
     # Always stop briefly before changing direction — reduces current spike
     mc.stop()
     time.sleep(0.5)
