@@ -448,13 +448,13 @@ def idle_wander(mc):
     front_blocked = dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM
     back_blocked  = dist_back  is not None and dist_back  < config.IDLE_OBSTACLE_CM
 
-    action   = random.choice(["forward", "turn_left", "turn_right", "stop"])
+    action   = random.choice(["forward", "turn_left", "turn_right", "backward"])
     duration = random.uniform(0.5, 2.0)
 
-    if action == "forward" and front_blocked:
-        action = random.choice(["turn_left", "turn_right"])
+    if front_blocked:
+        action = "backward"
     elif action == "backward" and back_blocked:
-        action = random.choice(["turn_left", "turn_right"])
+        action = random.choice(["forward", "turn_left", "turn_right"])
 
     # Always stop briefly before changing direction — reduces current spike
     mc.stop()
@@ -467,11 +467,15 @@ def idle_wander(mc):
             time.sleep(0.05)
     elif action == "turn_left":
         for speed in range(10, 26, 5):
-            mc.turn_left(speed)
+            mc.smooth_left(speed)
             time.sleep(0.05)
     elif action == "turn_right":
         for speed in range(10, 26, 5):
-            mc.turn_right(speed)
+            mc.smooth_right(speed)
+            time.sleep(0.05)
+    elif action == "backward":
+        for speed in range(10, 26, 5):
+            mc.backward(speed)
             time.sleep(0.05)
     else:
         mc.stop()
@@ -562,7 +566,7 @@ def main():
                     state = PRIMED
                     continue
 
-                mc.steer(person_offset_x, base_speed=55)
+                mc.steer(person_offset_x, base_speed=30)
                 time.sleep(0.05)
 
             # ── PRIMED ────────────────────────────────────────
