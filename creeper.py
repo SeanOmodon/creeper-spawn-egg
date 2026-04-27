@@ -460,7 +460,7 @@ def idle_wander(mc):
 
     # Always stop briefly before changing direction — reduces current spike
     mc.stop()
-    time.sleep(0.5)
+    time.sleep(1)
 
     # Ramp up speed gradually instead of jumping straight to full speed
     if action == "forward":
@@ -468,11 +468,11 @@ def idle_wander(mc):
             mc.forward(speed)
             time.sleep(0.05)
     elif action == "turn_left":
-        for speed in range(10, 26, 5):
+        for speed in range(20, 50, 5):
             mc.smooth_left(speed)
             time.sleep(0.05)
     elif action == "turn_right":
-        for speed in range(10, 26, 5):
+        for speed in range(20, 50, 5):
             mc.smooth_right(speed)
             time.sleep(0.05)
     elif action == "backward":
