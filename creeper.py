@@ -433,7 +433,7 @@ def vision_thread():
             person_detected = False
             person_offset_x = 0.0
 
-        time.sleep(0.03)  # prevents CPU from running at 100%
+        time.sleep(0.05)  # prevents CPU from running at 100%
 
 
 # ──────────────────────────────────────────────────────────────
