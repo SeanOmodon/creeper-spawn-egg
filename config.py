@@ -17,7 +17,7 @@ MOTOR_F_EnA    = 12    # Front Right EnA
 
 MOTOR_B_4      = 7     # Back Right IN4
 MOTOR_B_3      = 6     # Back Right IN3
-MOTOR_B_EnB    = 18    # Back Right EnB
+MOTOR_B_EnB    = 26    # Back Right EnB
 
 MOTOR_B_2      = 5     # Back Left IN2
 MOTOR_B_1      = 4     # Back Left IN1
