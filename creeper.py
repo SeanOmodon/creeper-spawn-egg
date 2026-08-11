@@ -47,6 +47,7 @@ FROZEN  = "FROZEN"
 # ──────────────────────────────────────────────────────────────
 state           = IDLE
 person_detected = False
+new_frame_available = False
 person_offset_x = 0.0   # px from frame centre — negative=left, positive=right
 dist_front      = None  # cm from front ultrasonic sensor
 dist_back       = None  # cm from back ultrasonic sensor
@@ -578,6 +579,7 @@ def main():
                     print("[Creeper] Scanning for people...")
                     if person_detected:
                         print("[Creeper] Person detected — CHASING")
+                        mc.stop()
                         led.flash(duration=0.3, brightness=100)
                         state = CHASING
 
