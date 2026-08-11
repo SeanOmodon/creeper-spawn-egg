@@ -493,11 +493,11 @@ def idle_wander(mc):
             mc.forward(speed)
             time.sleep(0.05)
     elif action == "turn_left":
-        for speed in range(20, 60, 5):
+        for speed in range(20, 60):
             mc.smooth_left(speed)
             time.sleep(0.05)
     elif action == "turn_right":
-        for speed in range(20, 60, 5):
+        for speed in range(20, 60):
             mc.smooth_right(speed)
             time.sleep(0.05)
     elif action == "backward":
