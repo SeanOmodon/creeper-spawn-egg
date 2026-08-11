@@ -284,10 +284,10 @@ class MotorController:
         """
         Smooth steering toward a detected person.
         offset_x is how many pixels the person is from the frame centre.
-        Dead zone of 60px drives straight to avoid jitter.
+        Dead zone of 160px drives straight to avoid jitter.
         Outside dead zone: calls smooth_left or smooth_right.
         """
-        dead_zone  = 60
+        dead_zone  = 160
         frame_half = config.CAMERA_WIDTH / 2
 
         if abs(offset_x) < dead_zone:
@@ -419,7 +419,7 @@ def detect_people(session, input_name, bgr):
 
 
 def vision_thread():
-    global person_detected, person_offset_x
+    global person_detected, person_offset_x, new_frame_available
     try:
         print("[Vision] Loading YOLO model...")
         session, input_name = load_model()
@@ -447,6 +447,7 @@ def vision_thread():
             if skip_counter >= FRAME_SKIP:
                 skip_counter = 0
                 boxes = detect_people(session, input_name, frame)
+                new_frame_available = True
             if boxes:
                 x1, y1, x2, y2, conf = boxes[0]
                 person_detected = True
@@ -594,9 +595,11 @@ def main():
                         state = PRIMED
                         continue
 
-                    print(f"[Creeper] Person offset: {person_offset_x:.0f}px")
-                    print(f"[Creeper] Front distance: {dist_front}cm, Back distance: {dist_back}cm")
-                    mc.steer(person_offset_x, base_speed=70)
+                    if new_frame_available:
+                        new_frame_available = False
+                        log(f"Chasing: offset={person_offset_x:.0f}px, front={dist_front}cm, back={dist_back}cm")
+                        print(f"[Creeper] Person offset: {person_offset_x:.0f}px")
+                        mc.steer(person_offset_x, base_speed=70)
                     time.sleep(0.05)
 
                 # ── PRIMED ────────────────────────────────────────
