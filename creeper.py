@@ -551,7 +551,7 @@ def check_restart():
 # Ctrl+C triggers cleanup of all GPIO and PWM resources.
 # ──────────────────────────────────────────────────────────────
 def main():
-    global state
+    global state, new_frame_available
 
     mc     = MotorController()
     led    = LEDController()
