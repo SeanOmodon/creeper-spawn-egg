@@ -489,19 +489,19 @@ def idle_wander(mc):
 
     # Ramp up speed gradually instead of jumping straight to full speed
     if action == "forward":
-        for speed in range(5):
+        for speed in range(10, 26, 5):
             mc.forward(speed)
             time.sleep(0.05)
     elif action == "turn_left":
-        for speed in range(20, 70):
+        for speed in range(20, 70, 5):
             mc.smooth_left(speed)
             time.sleep(0.05)
     elif action == "turn_right":
-        for speed in range(20, 70):
+        for speed in range(20, 70, 5):
             mc.smooth_right(speed)
             time.sleep(0.05)
     elif action == "backward":
-        for speed in range(5):
+        for speed in range(10, 26, 5):
             mc.backward(speed)
             time.sleep(0.05)
     else:
