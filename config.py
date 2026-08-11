@@ -1,7 +1,7 @@
 CAMERA_WIDTH    = 640
 CAMERA_HEIGHT   = 480
 CAMERA_FPS      = 24    # Pi 4 handles 30fps fine
-DEAD_ZONE        = 60       # px offset from center where we still go straight
+DEAD_ZONE        = 160       # px offset from center where we still go straight
 RESTART_DISTANCE_CM = 3   # cm — touching the sensor counts as restart
 IDLE_OBSTACLE_CM = 20   # closer than this = obstacle in idle mode
 IDLE_SPEED = 25   # was 40 — lower peak current in idle mode, but still enough to move

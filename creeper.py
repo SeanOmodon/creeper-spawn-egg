@@ -288,10 +288,9 @@ class MotorController:
         Dead zone of 160px drives straight to avoid jitter.
         Outside dead zone: calls smooth_left or smooth_right.
         """
-        dead_zone  = 160
         frame_half = config.CAMERA_WIDTH / 2
 
-        if abs(offset_x) < dead_zone:
+        if abs(offset_x) < config.DEAD_ZONE:
             self.forward(base_speed)
             return
 
@@ -591,7 +590,7 @@ def main():
                         state = IDLE
                         continue
 
-                    if dist_front is not None and dist_front <= 50:
+                    if dist_front is not None and dist_front <= 50 and person_offset_x < config.DEAD_ZONE:
                         print("[Creeper] Person within 50cm — PRIMED")
                         mc.stop()
                         state = PRIMED
