@@ -294,7 +294,7 @@ class MotorController:
             self.forward(base_speed)
             return
 
-        if offset_x < 0:
+        if offset_x > 0:
             self.smooth_right(base_speed)
         else:
             self.smooth_left(base_speed)
@@ -485,23 +485,23 @@ def idle_wander(mc):
 
     # Always stop briefly before changing direction — reduces current spike
     mc.stop()
-    time.sleep(1)
+    time.sleep(0.1)
 
     # Ramp up speed gradually instead of jumping straight to full speed
     if action == "forward":
-        for speed in range(10, 26, 5):
+        for speed in range(5):
             mc.forward(speed)
             time.sleep(0.05)
     elif action == "turn_left":
-        for speed in range(20, 60):
+        for speed in range(20, 70):
             mc.smooth_left(speed)
             time.sleep(0.05)
     elif action == "turn_right":
-        for speed in range(20, 60):
+        for speed in range(20, 70):
             mc.smooth_right(speed)
             time.sleep(0.05)
     elif action == "backward":
-        for speed in range(10, 26, 5):
+        for speed in range(5):
             mc.backward(speed)
             time.sleep(0.05)
     else:
@@ -594,6 +594,8 @@ def main():
                         state = PRIMED
                         continue
 
+                    print(f"[Creeper] Person offset: {person_offset_x:.0f}px")
+                    print(f"[Creeper] Front distance: {dist_front}cm, Back distance: {dist_back}cm")
                     mc.steer(person_offset_x, base_speed=70)
                     time.sleep(0.05)
 
