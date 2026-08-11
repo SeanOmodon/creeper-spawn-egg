@@ -7,21 +7,21 @@ IDLE_OBSTACLE_CM = 20   # closer than this = obstacle in idle mode
 IDLE_SPEED = 25   # was 40 — lower peak current in idle mode, but still enough to move
 
 # Motor GPIO 
-MOTOR_F_4      = 3     # Front Left IN4
-MOTOR_F_3      = 2     # Front Left IN3
-MOTOR_F_EnB    = 13    # Front Left EnB
+MOTOR_F_4      = 6     # Front Left IN4
+MOTOR_F_3      = 7     # Front Left IN3
+MOTOR_F_EnB    = 26    # Front Left EnB
 
 MOTOR_F_2      = 0     # Front Right IN2
 MOTOR_F_1      = 1     # Front Right IN1
 MOTOR_F_EnA    = 12    # Front Right EnA
 
-MOTOR_B_4      = 7     # Back Right IN4
-MOTOR_B_3      = 6     # Back Right IN3
-MOTOR_B_EnB    = 26    # Back Right EnB
+MOTOR_B_4      = 2     # Back Left IN4
+MOTOR_B_3      = 3     # Back Left IN3
+MOTOR_B_EnB    = 13    # Back Left EnB
 
-MOTOR_B_2      = 5     # Back Left IN2
-MOTOR_B_1      = 4     # Back Left IN1
-MOTOR_B_EnA    = 19    # Back Left EnA
+MOTOR_B_2      = 5     # Back Right IN2
+MOTOR_B_1      = 4     # Back Right IN1
+MOTOR_B_EnA    = 19    # Back Right EnA
 
 MOTOR_PWM_FREQ  = 100   # Hz
 
