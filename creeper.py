@@ -272,13 +272,13 @@ class MotorController:
 
     def smooth_right(self, speed=50):
         """Gentle right curve — right side stopped, left side forward."""
-        self._set_left(True,  0)
-        self._set_right(True, speed)
+        self._set_right(True,  0)
+        self._set_left(True, speed)
 
     def smooth_left(self, speed=50):
         """Gentle left curve — left side stopped, right side forward."""
-        self._set_left(True,  speed)
-        self._set_right(True, 0)
+        self._set_right(True,  speed)
+        self._set_left(True, 0)
 
     def steer(self, offset_x, base_speed=55):
         """
