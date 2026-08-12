@@ -516,7 +516,7 @@ def main():
                     led.off()
                     buzzer.off()
 
-                    idle_wander
+                    idle_wander()
 
                     print("[Creeper] Scanning for people...")
                     if person_detected:
