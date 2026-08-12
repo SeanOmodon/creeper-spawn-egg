@@ -30,8 +30,6 @@ import RPi.GPIO as GPIO
 
 # ──────────────────────────────────────────────────────────────
 # STATE CONSTANTS
-# Five states the creeper cycles through. The main loop checks
-# the current state every iteration and decides what to do.
 # ──────────────────────────────────────────────────────────────
 IDLE    = "IDLE"
 CHASING = "CHASING"
@@ -41,25 +39,21 @@ FROZEN  = "FROZEN"
 
 # ──────────────────────────────────────────────────────────────
 # SHARED STATE
-# These variables are written by background threads (vision,
-# ultrasonic, motor) and read by the main control loop.
-# Python's GIL makes simple reads/writes safe without locks.
-# motor_command is a tuple of (action, args) that the motor
-# thread reads and executes each cycle.
+# Written by background threads, read by the main loop.
+# motor_command is a tuple (method_name, [args]) consumed by
+# motor_thread. The state machine sets it and returns immediately
+# — the motor thread handles all timing and execution.
 # ──────────────────────────────────────────────────────────────
 state               = IDLE
 person_detected     = False
 new_frame_available = False
-person_offset_x     = 0.0   # px from frame centre — negative=left, positive=right
-dist_front          = None  # cm from front ultrasonic sensor
-dist_back           = None  # cm from back ultrasonic sensor
-motor_command       = ("stop", [])  # (method_name, [args]) for motor thread
+person_offset_x     = 0.0
+dist_front          = None
+dist_back           = None
+motor_command       = ("stop", [])
 
 # ──────────────────────────────────────────────────────────────
 # GPIO INIT
-# Called once at the top so all classes share the same mode.
-# setwarnings(False) suppresses "channel already in use" noise
-# from previous runs that didn't clean up.
 # ──────────────────────────────────────────────────────────────
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
@@ -68,11 +62,9 @@ def log(msg):
     with open("/home/creepah/creeper_log.txt", "a") as f:
         f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
 
+
 # ──────────────────────────────────────────────────────────────
 # LED CONTROLLER
-# Controls the 4x white LEDs on GPIO14 via software PWM.
-# PWM frequency is 200Hz — fast enough to avoid flicker.
-# Brightness is 0-100 duty cycle (0=off, 100=full brightness).
 # ──────────────────────────────────────────────────────────────
 class LEDController:
     def __init__(self):
@@ -88,13 +80,11 @@ class LEDController:
         self.pwm.ChangeDutyCycle(brightness)
 
     def flash(self, duration=0.3, brightness=100):
-        """Single flash — used when creeper first spots a person."""
         self.on(brightness)
         time.sleep(duration)
         self.off()
 
     def blink_white(self, duration=1.5, interval=0.2):
-        """Rapid blinking for the PRIMED countdown."""
         deadline = time.time() + duration
         while time.time() < deadline:
             self.on(100)
@@ -109,11 +99,6 @@ class LEDController:
 
 # ──────────────────────────────────────────────────────────────
 # BUZZER CONTROLLER
-# Controls the passive buzzer on GPIO20 via software PWM.
-# Unlike an active buzzer, a passive buzzer needs PWM to make
-# sound — the frequency of the PWM controls the pitch.
-# This lets us play specific notes and sweep between frequencies
-# to create the creeper hiss and explosion sound effects.
 # ──────────────────────────────────────────────────────────────
 class BuzzerController:
     def __init__(self):
@@ -123,7 +108,6 @@ class BuzzerController:
         self.pwm.start(0)
 
     def tone(self, freq, duty=40):
-        """Play a tone at the given frequency (Hz). duty=40 is a good volume."""
         self.pwm.ChangeFrequency(max(50, freq))
         self.pwm.ChangeDutyCycle(duty)
 
@@ -131,11 +115,6 @@ class BuzzerController:
         self.pwm.ChangeDutyCycle(0)
 
     def play_hiss_burst(self, start_freq, end_freq, duration, steps, led, brightness):
-        """
-        One descending frequency sweep — sounds like a single 'ssss'.
-        Sweeps from start_freq down to end_freq over the given duration.
-        LED is held on at the given brightness during the burst.
-        """
         step_time = duration / steps
         for i in range(steps):
             freq = int(start_freq + (end_freq - start_freq) * (i / steps))
@@ -146,13 +125,6 @@ class BuzzerController:
         led.off()
 
     def play_creeper_hiss(self, dist, led):
-        """
-        Full Minecraft creeper hiss — multiple descending bursts.
-        The closer the person, the more bursts, faster speed,
-        brighter LED, and shorter gaps between bursts.
-        At 50cm: 1 quiet slow burst.
-        At 5cm:  4 loud fast bursts with almost no gap.
-        """
         min_dist = 5.0
         max_dist = 50.0
         dist     = max(min_dist, min(dist, max_dist))
@@ -181,10 +153,6 @@ class BuzzerController:
                 time.sleep(gap)
 
     def play_explosion(self, led):
-        """
-        Explosion sound — rapid alternating high/low tones with LED flashing,
-        dropping in frequency over time like a shockwave dying out.
-        """
         explosion_seq = [
             (800, 0.06), (400, 0.06), (900, 0.05), (300, 0.05),
             (1000, 0.04), (200, 0.04), (1100, 0.03), (150, 0.03),
@@ -205,12 +173,6 @@ class BuzzerController:
 
 # ──────────────────────────────────────────────────────────────
 # MOTOR CONTROLLER
-# Controls 4 motors via two L298N drivers using RPi.GPIO
-# software PWM on the enable pins.
-# Left side  = front-left + back-left motors
-# Right side = front-right + back-right motors
-# Direction pins (IN1-IN4) set which way each side spins.
-# Enable pins (EnA, EnB) control speed via PWM duty cycle 0-100.
 # ──────────────────────────────────────────────────────────────
 class MotorController:
     def __init__(self):
@@ -235,7 +197,6 @@ class MotorController:
             time.sleep(0.05)
 
     def _set_left(self, fwd, speed):
-        """Drive left side motors forward or backward at given speed."""
         GPIO.output(config.MOTOR_F_3, GPIO.LOW  if fwd else GPIO.HIGH)
         GPIO.output(config.MOTOR_F_4, GPIO.HIGH if fwd else GPIO.LOW)
         GPIO.output(config.MOTOR_B_3, GPIO.LOW  if fwd else GPIO.HIGH)
@@ -244,7 +205,6 @@ class MotorController:
         self.pwm_bl.ChangeDutyCycle(speed)
 
     def _set_right(self, fwd, speed):
-        """Drive right side motors forward or backward at given speed."""
         GPIO.output(config.MOTOR_F_1, GPIO.HIGH if fwd else GPIO.LOW)
         GPIO.output(config.MOTOR_F_2, GPIO.LOW  if fwd else GPIO.HIGH)
         GPIO.output(config.MOTOR_B_1, GPIO.HIGH if fwd else GPIO.LOW)
@@ -265,32 +225,22 @@ class MotorController:
             pwm.ChangeDutyCycle(0)
 
     def turn_right(self, speed=50):
-        """Tank turn right — right side backward, left side forward."""
         self._set_left(False, speed)
         self._set_right(True, speed)
 
     def turn_left(self, speed=50):
-        """Tank turn left — left side backward, right side forward."""
         self._set_left(True,  speed)
         self._set_right(False, speed)
 
     def smooth_right(self, speed=50):
-        """Gentle right curve — right side stopped, left side forward."""
         self._set_right(True,  0)
         self._set_left(True, speed)
 
     def smooth_left(self, speed=50):
-        """Gentle left curve — left side stopped, right side forward."""
         self._set_right(True,  speed)
         self._set_left(True, 0)
 
     def steer(self, offset_x, base_speed=55):
-        """
-        Smooth steering toward a detected person.
-        offset_x is how many pixels the person is from the frame centre.
-        Dead zone drives straight to avoid jitter.
-        Outside dead zone: calls smooth_left or smooth_right.
-        """
         if abs(offset_x) < config.DEAD_ZONE:
             self.forward(base_speed)
             return
@@ -307,19 +257,108 @@ class MotorController:
 
 # ──────────────────────────────────────────────────────────────
 # MOTOR THREAD
-# Reads motor_command (set by the state machine) and executes
-# the corresponding MotorController method every 50ms.
-# This decouples motor execution from the state checker so the
-# state machine never blocks waiting for motor calls to return.
-# motor_command is a tuple: (method_name, [positional_args])
-# e.g. ("forward", [60]) or ("steer", [offset_x, 70])
+# The motor thread is the only place that drives the motors.
+# It reads motor_command every 50ms and executes it.
+#
+# Special command: ("idle_wander", [])
+# Instead of a simple method call, this runs the full wander
+# sequence internally — obstacle check, ramp-up, timed hold,
+# and mid-move obstacle recheck — all without blocking the
+# state machine. The wander sequence also checks whether the
+# state has changed (e.g. person detected) and exits early
+# if the state machine has moved on.
 # ──────────────────────────────────────────────────────────────
+RESTART_DISTANCE_CM = 3
+
+def _do_idle_wander(mc):
+    """
+    Full idle wander sequence — runs inside motor_thread.
+    Picks a random action, ramps up, holds for a random duration,
+    and checks for obstacles mid-move. Exits early if state
+    changes away from IDLE so the state machine stays responsive.
+    """
+    global motor_command
+
+    front_blocked = dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM
+    back_blocked  = dist_back  is not None and dist_back  < config.IDLE_OBSTACLE_CM
+
+    if random.uniform(0.0, 1.0) < config.NO_MOTION_CHANCE:
+        action = "still"
+        duration = random.uniform(1.0, 3.0)
+    else: 
+        action   = random.choice(["forward", "turn_left", "turn_right", "backward"])
+        duration = random.uniform(0.5, 2.0)
+        
+        if front_blocked:
+            action = "backward"
+        elif action == "backward" and back_blocked:
+            action = random.choice(["forward", "turn_left", "turn_right"])
+
+    log(f"Idle: {action} for {duration:.1f}s")
+    print(f"[Motor] Idle: {action} for {duration:.1f}s | front={dist_front}cm back={dist_back}cm")
+
+    # Stop briefly before changing direction
+    mc.stop()
+    time.sleep(0.1)
+
+    # Ramp up
+    if action == "forward":
+        for speed in range(10, 26, 5):
+            if state != IDLE: mc.stop(); return
+            mc.forward(speed)
+            time.sleep(0.05)
+    elif action == "turn_left":
+        for speed in range(20, 70, 5):
+            if state != IDLE: mc.stop(); return
+            mc.smooth_left(speed)
+            duration = duration * 1.5 # longer turn duration
+            time.sleep(0.05)
+    elif action == "turn_right":
+        for speed in range(20, 70, 5):
+            if state != IDLE: mc.stop(); return
+            mc.smooth_right(speed)
+            duration = duration * 1.5 # longer turn duration
+            time.sleep(0.05)
+    elif action == "backward":
+        for speed in range(10, 26, 5):
+            if state != IDLE: mc.stop(); return
+            mc.backward(speed)
+            time.sleep(0.05)
+    else:
+        mc.stop()
+        return
+
+    # Hold for duration, checking obstacles and state changes
+    deadline = time.time() + duration
+    while time.time() < deadline:
+        if state != IDLE:
+            mc.stop()
+            return
+        if dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM and action == "forward":
+            mc.stop()
+            return
+        if dist_back is not None and dist_back < config.IDLE_OBSTACLE_CM and action == "backward":
+            mc.stop()
+            return
+        time.sleep(0.05)
+
+    mc.stop()
+
+
 def motor_thread(mc):
+    """
+    Reads motor_command and executes it.
+    idle_wander is handled as a full blocking sequence internally.
+    All other commands are simple method calls on MotorController.
+    """
     try:
         while True:
             cmd, args = motor_command
             try:
-                getattr(mc, cmd)(*args)
+                if cmd == "idle_wander":
+                    _do_idle_wander(mc)
+                else:
+                    getattr(mc, cmd)(*args)
             except Exception as e:
                 print(f"[Motor] Command error ({cmd} {args}): {e}")
             time.sleep(0.05)
@@ -329,12 +368,6 @@ def motor_thread(mc):
 
 # ──────────────────────────────────────────────────────────────
 # ULTRASONIC SENSOR
-# _measure_distance fires a 10us trigger pulse and times how
-# long the echo pin stays HIGH. Distance = time * speed of sound.
-# _averaged_distance takes multiple samples and returns the median
-# to filter out spurious spikes from electrical noise.
-# ultrasonic_thread runs in the background, updating dist_front
-# and dist_back continuously.
 # ──────────────────────────────────────────────────────────────
 def _measure_distance(echo_pin, timeout=0.04):
     GPIO.output(config.TRIG_PIN, False)
@@ -360,18 +393,12 @@ def _measure_distance(echo_pin, timeout=0.04):
     return (pulse_end - pulse_start) * 17150
 
 def _averaged_distance(echo_pin, samples=5):
-    """
-    Takes multiple readings and returns the median.
-    Filters out spurious spikes from electrical noise.
-    None readings are ignored — if all readings fail, returns None.
-    """
     readings = []
     for _ in range(samples):
         dist = _measure_distance(echo_pin)
         if dist is not None:
             readings.append(dist)
         time.sleep(0.01)
-
     if not readings:
         return None
     readings.sort()
@@ -383,7 +410,6 @@ def ultrasonic_thread():
         GPIO.setup(config.TRIG_PIN,       GPIO.OUT)
         GPIO.setup(config.ECHO_PIN_FRONT, GPIO.IN)
         GPIO.setup(config.ECHO_PIN_BACK,  GPIO.IN)
-
         while True:
             dist_front = _averaged_distance(config.ECHO_PIN_FRONT, samples=5)
             time.sleep(0.01)
@@ -395,20 +421,8 @@ def ultrasonic_thread():
 
 # ──────────────────────────────────────────────────────────────
 # VISION
-# load_model loads the YOLOv8n ONNX model from disk.
-# detect_people runs inference on a single frame:
-#   1. Resize to 320x320 (smaller = faster on Pi)
-#   2. Normalise pixel values to 0.0-1.0
-#   3. Reshape to (1, 3, 320, 320) — batch of 1, RGB channels
-#   4. Run through YOLO
-#   5. Filter results to class 0 (person) above confidence floor
-#   6. Return bounding boxes scaled back to original resolution
-#
-# vision_thread runs in the background, updating person_detected
-# and person_offset_x every FRAME_SKIP frames. The sleep(0.1)
-# gives the CPU breathing room to prevent thermal throttling.
 # ──────────────────────────────────────────────────────────────
-FRAME_SKIP = 5 # run YOLO every 5th frame to reduce CPU load
+FRAME_SKIP = 5
 
 def load_model():
     model_path = os.path.join(os.path.dirname(__file__), "yolov8n.onnx")
@@ -418,7 +432,6 @@ def load_model():
     session    = ort.InferenceSession(model_path)
     input_name = session.get_inputs()[0].name
     return session, input_name
-
 
 def detect_people(session, input_name, bgr):
     img       = cv2.resize(bgr, (320, 320))
@@ -439,7 +452,6 @@ def detect_people(session, input_name, bgr):
         y2 = int((cy + h / 2) * (config.CAMERA_HEIGHT / 320))
         boxes.append((x1, y1, x2, y2, conf))
     return boxes
-
 
 def vision_thread():
     global person_detected, person_offset_x, new_frame_available
@@ -485,72 +497,8 @@ def vision_thread():
 
 
 # ──────────────────────────────────────────────────────────────
-# IDLE WANDERING
-# Wanders randomly but checks the front and back ultrasonic
-# sensors before each move to avoid driving into obstacles.
-# Sets motor_command instead of calling mc directly, so the
-# motor thread executes the movement independently.
-# ──────────────────────────────────────────────────────────────
-def idle_wander():
-    global motor_command
-
-    front_blocked = dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM
-    back_blocked  = dist_back  is not None and dist_back  < config.IDLE_OBSTACLE_CM
-
-    action   = random.choice(["forward", "turn_left", "turn_right", "backward"])
-    duration = random.uniform(0.5, 2.0)
-
-    if front_blocked:
-        action = "backward"
-    elif action == "backward" and back_blocked:
-        action = random.choice(["forward", "turn_left", "turn_right"])
-
-    log(f"Idle: {action} for {duration:.1f}s")
-    print(f"[Idle] Action: {action}, Duration: {duration:.1f}s, Front: {dist_front}cm, Back: {dist_back}cm")
-
-    # Stop briefly before changing direction
-    motor_command = ("stop", [])
-    time.sleep(0.1)
-
-    # Ramp up speed gradually
-    if action == "forward":
-        for speed in range(10, 26, 5):
-            motor_command = ("forward", [speed])
-            time.sleep(0.05)
-    elif action == "turn_left":
-        for speed in range(20, 70, 5):
-            motor_command = ("smooth_left", [speed])
-            time.sleep(0.05)
-    elif action == "turn_right":
-        for speed in range(20, 70, 5):
-            motor_command = ("smooth_right", [speed])
-            time.sleep(0.05)
-    elif action == "backward":
-        for speed in range(10, 26, 5):
-            motor_command = ("backward", [speed])
-            time.sleep(0.05)
-    else:
-        motor_command = ("stop", [])
-
-    # Hold the action for the chosen duration, checking for obstacles
-    deadline = time.time() + duration
-    while time.time() < deadline:
-        if dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM and action == "forward":
-            motor_command = ("stop", [])
-            break
-        if dist_back is not None and dist_back < config.IDLE_OBSTACLE_CM and action == "backward":
-            motor_command = ("stop", [])
-            break
-        time.sleep(0.05)
-
-
-# ──────────────────────────────────────────────────────────────
 # RESTART CHECK
-# After exploding the creeper freezes until someone holds their
-# hand very close (~0cm) to either ultrasonic sensor.
 # ──────────────────────────────────────────────────────────────
-RESTART_DISTANCE_CM = 3
-
 def check_restart():
     if dist_front is not None and dist_front < RESTART_DISTANCE_CM:
         return True
@@ -561,18 +509,15 @@ def check_restart():
 
 # ──────────────────────────────────────────────────────────────
 # MAIN LOOP
-# Initialises all hardware, starts background threads, then
-# runs the state machine in a tight loop.
-# Motor commands are issued by setting motor_command — the
-# motor thread picks them up and executes them independently.
+# The state machine sets motor_command and returns immediately.
+# All motor execution — including the full idle wander sequence
+# — happens in motor_thread without blocking the state checker.
 #
-# IDLE    -> wanders randomly, checks for person each cycle
-# CHASING -> sets steer command, checks distance each cycle
-# PRIMED  -> stops motors, plays hiss, blinks, then transitions
-# EXPLODE -> plays explosion sequence, then transitions
-# FROZEN  -> waits for sensor touch to restart
-#
-# Ctrl+C triggers cleanup of all GPIO and PWM resources.
+# IDLE    -> sets ("idle_wander", []), checks for person
+# CHASING -> sets ("steer", [...]), checks distance
+# PRIMED  -> sets ("stop", []), plays hiss and blink
+# EXPLODE -> sets ("stop", []), plays explosion
+# FROZEN  -> sets ("stop", []), waits for sensor touch
 # ──────────────────────────────────────────────────────────────
 def main():
     global state, new_frame_available, motor_command
@@ -598,10 +543,15 @@ def main():
                 log(f"State: {state}")
 
                 # ── IDLE ──────────────────────────────────────────
+                # Sets idle_wander command and returns immediately.
+                # motor_thread runs the full wander sequence and
+                # exits early if the state changes.
                 if state == IDLE:
                     led.off()
                     buzzer.off()
-                    idle_wander()
+                    motor_command = ("idle_wander", [])
+                    # Yield briefly so motor_thread can start the wander
+                    time.sleep(0.1)
                     print("[Creeper] Scanning for people...")
                     if person_detected:
                         print("[Creeper] Person detected — CHASING")
@@ -625,8 +575,8 @@ def main():
 
                     if new_frame_available:
                         new_frame_available = False
-                        log(f"Chasing: offset={person_offset_x:.0f}px, front={dist_front}cm, back={dist_back}cm")
-                        print(f"[Creeper] Person offset: {person_offset_x:.0f}px")
+                        log(f"Chasing: offset={person_offset_x:.0f}px front={dist_front}cm back={dist_back}cm")
+                        print(f"[Creeper] Chasing: offset={person_offset_x:.0f}px")
                         motor_command = ("steer", [person_offset_x, 70])
                     time.sleep(0.05)
 
