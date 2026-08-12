@@ -39,10 +39,10 @@ FROZEN  = "FROZEN"
 
 # ──────────────────────────────────────────────────────────────
 # SHARED STATE
-# Written by background threads, read by the main loop.
-# motor_command is a tuple (method_name, [args]) consumed by
-# motor_thread. The state machine sets it and returns immediately
-# — the motor thread handles all timing and execution.
+# motor_command is a tuple (method_name, [args], duration).
+# duration is how long the motor thread holds the command before
+# accepting the next one. Set duration=0 for immediate commands
+# like steer and stop that should update every cycle.
 # ──────────────────────────────────────────────────────────────
 state               = IDLE
 person_detected     = False
@@ -50,7 +50,7 @@ new_frame_available = False
 person_offset_x     = 0.0
 dist_front          = None
 dist_back           = None
-motor_command       = ("stop", [])
+motor_command       = ("stop", [], 0)  # (method, args, duration_seconds)
 
 # ──────────────────────────────────────────────────────────────
 # GPIO INIT
@@ -257,110 +257,30 @@ class MotorController:
 
 # ──────────────────────────────────────────────────────────────
 # MOTOR THREAD
-# The motor thread is the only place that drives the motors.
-# It reads motor_command every 50ms and executes it.
-#
-# Special command: ("idle_wander", [])
-# Instead of a simple method call, this runs the full wander
-# sequence internally — obstacle check, ramp-up, timed hold,
-# and mid-move obstacle recheck — all without blocking the
-# state machine. The wander sequence also checks whether the
-# state has changed (e.g. person detected) and exits early
-# if the state machine has moved on.
+# Reads motor_command and executes the method immediately.
+# If duration > 0, holds the command for that many seconds
+# before accepting a new one — this is how idle wander actions
+# get their timed duration without blocking the main thread.
+# duration=0 means accept a new command every 50ms cycle,
+# which is used for steer and stop.
 # ──────────────────────────────────────────────────────────────
-RESTART_DISTANCE_CM = 3
-
-def _do_idle_wander(mc):
-    """
-    Full idle wander sequence — runs inside motor_thread.
-    Picks a random action, ramps up, holds for a random duration,
-    and checks for obstacles mid-move. Exits early if state
-    changes away from IDLE so the state machine stays responsive.
-    """
-    global motor_command
-
-    front_blocked = dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM
-    back_blocked  = dist_back  is not None and dist_back  < config.IDLE_OBSTACLE_CM
-
-    if random.uniform(0.0, 1.0) < config.NO_MOTION_CHANCE:
-        action = "still"
-        duration = random.uniform(1.0, 3.0)
-    else: 
-        action   = random.choice(["forward", "turn_left", "turn_right", "backward"])
-        duration = random.uniform(0.5, 2.0)
-        
-        if front_blocked:
-            action = "backward"
-        elif action == "backward" and back_blocked:
-            action = random.choice(["forward", "turn_left", "turn_right"])
-
-    log(f"Idle: {action} for {duration:.1f}s")
-    print(f"[Motor] Idle: {action} for {duration:.1f}s | front={dist_front}cm back={dist_back}cm")
-
-    # Stop briefly before changing direction
-    mc.stop()
-    time.sleep(0.1)
-
-    # Ramp up
-    if action == "forward":
-        for speed in range(10, 26, 5):
-            if state != IDLE: mc.stop(); return
-            mc.forward(speed)
-            time.sleep(0.05)
-    elif action == "turn_left":
-        for speed in range(20, 70, 5):
-            if state != IDLE: mc.stop(); return
-            mc.smooth_left(speed)
-            duration = duration * 1.5 # longer turn duration
-            time.sleep(0.05)
-    elif action == "turn_right":
-        for speed in range(20, 70, 5):
-            if state != IDLE: mc.stop(); return
-            mc.smooth_right(speed)
-            duration = duration * 1.5 # longer turn duration
-            time.sleep(0.05)
-    elif action == "backward":
-        for speed in range(10, 26, 5):
-            if state != IDLE: mc.stop(); return
-            mc.backward(speed)
-            time.sleep(0.05)
-    else:
-        mc.stop()
-        return
-
-    # Hold for duration, checking obstacles and state changes
-    deadline = time.time() + duration
-    while time.time() < deadline:
-        if state != IDLE:
-            mc.stop()
-            return
-        if dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM and action == "forward":
-            mc.stop()
-            return
-        if dist_back is not None and dist_back < config.IDLE_OBSTACLE_CM and action == "backward":
-            mc.stop()
-            return
-        time.sleep(0.05)
-
-    mc.stop()
-
-
 def motor_thread(mc):
-    """
-    Reads motor_command and executes it.
-    idle_wander is handled as a full blocking sequence internally.
-    All other commands are simple method calls on MotorController.
-    """
     try:
+        last_cmd  = None
+        hold_until = 0.0
+
         while True:
-            cmd, args = motor_command
-            try:
-                if cmd == "idle_wander":
-                    _do_idle_wander(mc)
-                else:
+            cmd, args, duration = motor_command
+
+            # Only execute a new command if we're past the hold period
+            if time.time() >= hold_until or cmd != last_cmd:
+                try:
                     getattr(mc, cmd)(*args)
-            except Exception as e:
-                print(f"[Motor] Command error ({cmd} {args}): {e}")
+                except Exception as e:
+                    print(f"[Motor] Command error ({cmd} {args}): {e}")
+                hold_until = time.time() + duration
+                last_cmd   = cmd
+
             time.sleep(0.05)
     except Exception as e:
         print(f"[Motor] THREAD CRASHED: {e}")
@@ -495,10 +415,65 @@ def vision_thread():
     except Exception as e:
         print(f"[Vision] THREAD CRASHED: {e}")
 
+def idle_wander():
+    """
+    Full idle wander sequence.
+    Picks a random action, holds for a random duration,
+    and checks for obstacles mid-move. Exits early if 
+    a person is detected so the state machine stays responsive.
+    """
+
+    global motor_command
+
+    # Obstacle check
+    front_blocked = dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM
+    back_blocked  = dist_back  is not None and dist_back  < config.IDLE_OBSTACLE_CM
+
+    action   = random.choice(["forward", "turn_left", "turn_right", "backward", "stop"])
+
+    if front_blocked:
+        action = "backward"
+    elif action == "backward" and back_blocked:
+        action = random.choice(["forward", "turn_left", "turn_right"])
+
+    if action == "turn_left" or action == "turn_right" or action == "stop":
+        duration = random.uniform(1.0, 3.0)
+    else:
+        duration = random.uniform(0.5, 2.0)
+
+    log(f"Idle: {action} for {duration:.1f}s")
+    print(f"[Idle] {action} for {duration:.1f}s | front={dist_front}cm back={dist_back}cm")
+
+    # Set command with speed and duration — motor thread holds it
+    if action == "forward":
+        motor_command = ("forward",      [25],  duration)
+    elif action == "turn_left":
+        motor_command = ("smooth_left",  [70],  duration)
+    elif action == "turn_right":
+        motor_command = ("smooth_right", [70],  duration)
+    elif action == "backward":
+        motor_command = ("backward",     [25],  duration)
+    else:
+        motor_command = ("stop",         [],    duration)
+
+    # Main thread polls for person detection during the duration
+    deadline = time.time() + duration
+    while time.time() < deadline:
+        if person_detected:
+            break
+        if dist_front is not None and dist_front < config.IDLE_OBSTACLE_CM and action == "forward":
+            motor_command = ("stop", [], 0)
+            break
+        if dist_back is not None and dist_back < config.IDLE_OBSTACLE_CM and action == "backward":
+            motor_command = ("stop", [], 0)
+            break
+        time.sleep(0.05)
 
 # ──────────────────────────────────────────────────────────────
 # RESTART CHECK
 # ──────────────────────────────────────────────────────────────
+RESTART_DISTANCE_CM = 3
+
 def check_restart():
     if dist_front is not None and dist_front < RESTART_DISTANCE_CM:
         return True
@@ -509,15 +484,10 @@ def check_restart():
 
 # ──────────────────────────────────────────────────────────────
 # MAIN LOOP
-# The state machine sets motor_command and returns immediately.
-# All motor execution — including the full idle wander sequence
-# — happens in motor_thread without blocking the state checker.
-#
-# IDLE    -> sets ("idle_wander", []), checks for person
-# CHASING -> sets ("steer", [...]), checks distance
-# PRIMED  -> sets ("stop", []), plays hiss and blink
-# EXPLODE -> sets ("stop", []), plays explosion
-# FROZEN  -> sets ("stop", []), waits for sensor touch
+# idle_wander logic runs in the main thread — it picks the
+# action, sets motor_command with a duration, then immediately
+# checks sensors and state. The motor thread holds the action
+# for that duration independently so the main thread is free.
 # ──────────────────────────────────────────────────────────────
 def main():
     global state, new_frame_available, motor_command
@@ -533,7 +503,7 @@ def main():
 
     print("[Creeper] Warming up...")
     time.sleep(2)
-    motor_command = ("stop", [])
+    motor_command = ("stop", [], 0)
     time.sleep(0.5)
     print("[Creeper] Running. State: IDLE")
 
@@ -542,20 +512,13 @@ def main():
             try:
                 log(f"State: {state}")
 
-                # ── IDLE ──────────────────────────────────────────
-                # Sets idle_wander command and returns immediately.
-                # motor_thread runs the full wander sequence and
-                # exits early if the state changes.
                 if state == IDLE:
                     led.off()
                     buzzer.off()
-                    motor_command = ("idle_wander", [])
-                    # Yield briefly so motor_thread can start the wander
-                    time.sleep(0.1)
                     print("[Creeper] Scanning for people...")
                     if person_detected:
                         print("[Creeper] Person detected — CHASING")
-                        motor_command = ("stop", [])
+                        motor_command = ("stop", [], 0)
                         led.flash(duration=0.3, brightness=100)
                         state = CHASING
 
@@ -563,26 +526,26 @@ def main():
                 elif state == CHASING:
                     if not person_detected:
                         print("[Creeper] Lost person — IDLE")
-                        motor_command = ("stop", [])
+                        motor_command = ("stop", [], 0)
                         state = IDLE
                         continue
 
                     if dist_front is not None and dist_front <= 50 and abs(person_offset_x) < config.DEAD_ZONE:
                         print("[Creeper] Person within 50cm — PRIMED")
-                        motor_command = ("stop", [])
+                        motor_command = ("stop", [], 0)
                         state = PRIMED
                         continue
 
                     if new_frame_available:
                         new_frame_available = False
-                        log(f"Chasing: offset={person_offset_x:.0f}px front={dist_front}cm back={dist_back}cm")
+                        log(f"Chasing: offset={person_offset_x:.0f}px front={dist_front}cm")
                         print(f"[Creeper] Chasing: offset={person_offset_x:.0f}px")
-                        motor_command = ("steer", [person_offset_x, 70])
+                        motor_command = ("steer", [person_offset_x, 70], 0)
                     time.sleep(0.05)
 
                 # ── PRIMED ────────────────────────────────────────
                 elif state == PRIMED:
-                    motor_command = ("stop", [])
+                    motor_command = ("stop", [], 0)
                     print("[Creeper] Hissing...")
                     dist = dist_front if dist_front is not None else 50
                     buzzer.play_creeper_hiss(dist, led)
@@ -593,14 +556,14 @@ def main():
 
                 # ── EXPLODE ───────────────────────────────────────
                 elif state == EXPLODE:
-                    motor_command = ("stop", [])
+                    motor_command = ("stop", [], 0)
                     buzzer.play_explosion(led)
                     print("[Creeper] Frozen. Touch a sensor to restart.")
                     state = FROZEN
 
                 # ── FROZEN ────────────────────────────────────────
                 elif state == FROZEN:
-                    motor_command = ("stop", [])
+                    motor_command = ("stop", [], 0)
                     led.off()
                     buzzer.off()
                     if check_restart():
@@ -612,13 +575,13 @@ def main():
 
             except Exception as e:
                 print(f"[Main] Exception in state {state}: {e}")
-                motor_command = ("stop", [])
+                motor_command = ("stop", [], 0)
                 time.sleep(0.5)
 
     except KeyboardInterrupt:
         print("\n[Creeper] Shutting down.")
     finally:
-        motor_command = ("stop", [])
+        motor_command = ("stop", [], 0)
         time.sleep(0.1)
         mc.cleanup()
         led.cleanup()
