@@ -90,7 +90,7 @@ def main():
     print("Buzzer playing creeper hiss.")
     buzzer.play_creeper_hiss()
     buzzer.off()
-    time.sleep(1000)
+    time.sleep(1)
     print("Buzzer playing explosion.")
     buzzer.play_explosion()
     buzzer.off
