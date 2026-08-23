@@ -1,15 +1,15 @@
 import time
 import sys
 import os
-import threading
-import random
+# import threading
+# import random
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import config
 
-import onnxruntime as ort
-import numpy as np
-import cv2
+# import onnxruntime as ort
+# import numpy as np
+# import cv2
 import RPi.GPIO as GPIO
 
 # ──────────────────────────────────────────────────────────────
@@ -82,8 +82,11 @@ class BuzzerController:
 
 def main():
     buzzer = BuzzerController()
+    print("Buzzer controller initialized.")
     buzzer.off()
+    print("Buzzer playing creeper hiss.")
     buzzer.play_creeper_hiss()
     buzzer.off()
+    print("Buzzer playing explosion.")
     buzzer.play_explosion()
     buzzer.off
