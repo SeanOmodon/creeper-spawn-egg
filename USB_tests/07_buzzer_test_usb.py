@@ -46,17 +46,12 @@ class BuzzerController:
         num_bursts = 3
         speed      = 1
         brightness = 100
-        gap        = 0.12
+        gap        = 0.2
 
-        stages = [
-            (800, 200, 0.18, 30),
-            (700, 150, 0.15, 25),
-            (600, 100, 0.12, 20),
-            (500,  80, 0.10, 18),
-        ]
+        sequence = [800, 200, 0.5, 30]
 
         for i in range(num_bursts):
-            start_freq, end_freq, duration, steps = stages[min(i, len(stages) - 1)]
+            start_freq, end_freq, duration, steps = sequence
             self.play_hiss_burst(
                 start_freq, end_freq,
                 duration * speed, steps,
