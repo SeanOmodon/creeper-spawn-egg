@@ -26,7 +26,7 @@ class BuzzerController:
         self.pwm.start(0)
 
     def tone(self, freq, duty=40):
-        self.pwm.ChangeFrequency(max(50, freq))
+        self.pwm.ChangeFrequency(freq)
         self.pwm.ChangeDutyCycle(duty)
 
     def off(self):
@@ -43,20 +43,19 @@ class BuzzerController:
         # led.off()
 
     def play_creeper_hiss(self, led = None):
-        speed      = 1
         brightness = 100
 
         stages = [
 		(50, 200, 0.2, 15, 0.3),
-		(200, 10, 0.3, 20, 0),
-		(10, 100, 0.25, 20, 0)
+		(200, 50, 0.5, 20, 0),
+		(50, 175, 0.5, 20, 0)
 		]
 
         for i in range(len(stages)):
             start_freq, end_freq, duration, steps, wait = stages[i]
             self.play_hiss_burst(
                 start_freq, end_freq,
-                duration * speed, steps,
+                duration, steps,
                 led, brightness
             )
             time.sleep(wait)
