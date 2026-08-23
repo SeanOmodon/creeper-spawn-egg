@@ -90,3 +90,6 @@ def main():
     print("Buzzer playing explosion.")
     buzzer.play_explosion()
     buzzer.off
+
+if __name__ == "__main__":
+    main()
