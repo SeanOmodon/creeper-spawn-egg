@@ -12,6 +12,9 @@ import config
 # import cv2
 import RPi.GPIO as GPIO
 
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+
 # ──────────────────────────────────────────────────────────────
 # BUZZER CONTROLLER
 # ──────────────────────────────────────────────────────────────
