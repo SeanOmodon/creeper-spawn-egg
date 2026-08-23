@@ -43,22 +43,23 @@ class BuzzerController:
         # led.off()
 
     def play_creeper_hiss(self, led = None):
-        num_bursts = 3
         speed      = 1
         brightness = 100
-        gap        = 0.2
 
-        sequence = [800, 200, 0.5, 30]
+        stages = [
+		(50, 200, 0.2, 15, 0.1),
+		(200, 10, 0.3, 20, 0),
+		(10, 100, 0.25, 20, 0)
+		]
 
-        for i in range(num_bursts):
-            start_freq, end_freq, duration, steps = sequence
+        for i in range(len(stages)):
+            start_freq, end_freq, duration, steps, wait = stages[i]
             self.play_hiss_burst(
                 start_freq, end_freq,
                 duration * speed, steps,
                 led, brightness
             )
-            if i < num_bursts - 1:
-                time.sleep(gap)
+	    time.sleep(wait)
 
     def play_explosion(self, led = None):
         explosion_seq = [
