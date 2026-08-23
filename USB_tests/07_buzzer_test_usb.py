@@ -37,10 +37,10 @@ class BuzzerController:
         for i in range(steps):
             freq = int(start_freq + (end_freq - start_freq) * (i / steps))
             self.tone(freq)
-            led.on(brightness)
+            # led.on(brightness)
             time.sleep(step_time)
         self.off()
-        led.off()
+        # led.off()
 
     def play_creeper_hiss(self, led = None):
         num_bursts = 3
@@ -74,10 +74,10 @@ class BuzzerController:
         ]
         for i, (freq, duration) in enumerate(explosion_seq):
             self.tone(freq)
-            led.on(100) if i % 2 == 0 else led.off()
+            # led.on(100) if i % 2 == 0 else led.off()
             time.sleep(duration)
         self.off()
-        led.off()
+        # led.off()
 
     def cleanup(self):
         self.off()
