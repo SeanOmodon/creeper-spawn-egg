@@ -59,7 +59,7 @@ class BuzzerController:
                 duration * speed, steps,
                 led, brightness
             )
-        time.sleep(wait)
+            time.sleep(wait)
 
     def play_explosion(self, led = None):
         explosion_seq = [
