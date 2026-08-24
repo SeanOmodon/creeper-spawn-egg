@@ -54,21 +54,22 @@ class BuzzerController:
 
         for i in range(len(stages)):
             if (i == len(stages) - 1):
-
-                for j in range(15):
+                for j in range(10):
                     start_freq, end_freq, duration, steps, wait = stages[i]
+                    start_freq -= j*5
+                    end_freq -= j*5
                     self.play_hiss_burst(
                         start_freq, end_freq,
                         duration, steps,
-                        led, brightness,
-                        40 - 2*j
+                        led, brightness
                     )
                     end_freq, start_freq, duration, steps, wait = stages[i]
+                    start_freq -= j*5
+                    end_freq -= j*5
                     self.play_hiss_burst(
                         start_freq, end_freq,
                         duration, steps,
-                        led, brightness,
-                        40 - 2*j
+                        led, brightness
                     )
             else: 
                 start_freq, end_freq, duration, steps, wait = stages[i]
