@@ -573,7 +573,7 @@ def main():
                     motor_command = ("stop", [], 0)
                     print("[Creeper] Hissing...")
                     dist = dist_front if dist_front is not None else 50
-                    buzzer.play_creeper_hiss(dist, led)
+                    buzzer.play_creeper_hiss(led)
                     time.sleep(0.2)
                     led.blink_white(duration=1.5, interval=0.2)
                     print("[Creeper] EXPLODING")
