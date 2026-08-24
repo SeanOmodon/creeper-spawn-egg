@@ -594,6 +594,7 @@ def main():
                     if check_restart():
                         print("[Creeper] Restart triggered — IDLE")
                         time.sleep(1)
+                        buzzer.play_restart(led)
                         state = IDLE
                     else:
                         time.sleep(0.1)
