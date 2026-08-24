@@ -108,63 +108,82 @@ class BuzzerController:
         self.pwm.start(0)
 
     def tone(self, freq, duty=40):
-        self.pwm.ChangeFrequency(max(50, freq))
+        self.pwm.ChangeFrequency(freq)
         self.pwm.ChangeDutyCycle(duty)
 
     def off(self):
         self.pwm.ChangeDutyCycle(0)
 
-    def play_hiss_burst(self, start_freq, end_freq, duration, steps, led, brightness):
+    def play_hiss_burst(self, start_freq, end_freq, duration, steps, led, brightness, duty=40):
         step_time = duration / steps
         for i in range(steps):
             freq = int(start_freq + (end_freq - start_freq) * (i / steps))
-            self.tone(freq)
-            led.on(brightness)
+            self.tone(freq, duty)
+            # led.on(brightness)
             time.sleep(step_time)
         self.off()
-        led.off()
+        # led.off()
 
-    def play_creeper_hiss(self, dist, led):
-        min_dist = 5.0
-        max_dist = 50.0
-        dist     = max(min_dist, min(dist, max_dist))
-        ratio    = (max_dist - dist) / (max_dist - min_dist)
-
-        num_bursts = max(1, int(1 + ratio * 3))
-        speed      = 1.0 - ratio * 0.6
-        brightness = int(25 + ratio * 75)
-        gap        = 0.12 - ratio * 0.08
+    def play_creeper_hiss(self, led = None):
+        brightness = 100
 
         stages = [
-            (800, 200, 0.18, 30),
-            (700, 150, 0.15, 25),
-            (600, 100, 0.12, 20),
-            (500,  80, 0.10, 18),
-        ]
+		(50, 200, 0.2, 15, 0.3),
+		(200, 50, 0.5, 20, 0),
+		(50, 175, 0.5, 20, 0),
+        (175, 100, 0.1, 5, 0)
+		]
 
-        for i in range(num_bursts):
-            start_freq, end_freq, duration, steps = stages[min(i, len(stages) - 1)]
-            self.play_hiss_burst(
-                start_freq, end_freq,
-                duration * speed, steps,
-                led, brightness
-            )
-            if i < num_bursts - 1:
-                time.sleep(gap)
+        for i in range(len(stages)):
+            if (i == len(stages) - 1):
+                for j in range(4):
+                    for k in range(2):
+                        start_freq, end_freq, duration, steps, wait = stages[i]
+                        self.play_hiss_burst(
+                            start_freq, end_freq,
+                            duration, steps,
+                            led, brightness
+                        )
+                        end_freq, start_freq, duration, steps, wait = stages[i]
+                        self.play_hiss_burst(
+                            start_freq, end_freq,
+                            duration, steps,
+                            led, brightness
+                        )
+                    time.sleep(0.3) 
+            else: 
+                start_freq, end_freq, duration, steps, wait = stages[i]
+                self.play_hiss_burst(
+                    start_freq, end_freq,
+                    duration, steps,
+                    led, brightness
+                )
+                time.sleep(wait)
 
-    def play_explosion(self, led):
+    def play_explosion(self, led = None):
         explosion_seq = [
-            (800, 0.06), (400, 0.06), (900, 0.05), (300, 0.05),
-            (1000, 0.04), (200, 0.04), (1100, 0.03), (150, 0.03),
-            (1200, 0.03), (100, 0.03), (1300, 0.02), (80,  0.02),
-            (1400, 0.02), (60,  0.02), (1500, 0.02), (50,  0.02),
+            (2000,0.1),(1500,0.06),(2000,0.08),(1500,0.04),(1000,0.04),(500,0.02)
         ]
         for i, (freq, duration) in enumerate(explosion_seq):
             self.tone(freq)
-            led.on(100) if i % 2 == 0 else led.off()
+            # led.on(100) if i % 2 == 0 else led.off()
             time.sleep(duration)
         self.off()
-        led.off()
+        # led.off()
+
+    def play_restart(self, led = None):
+        explosion_seq = [
+                    (800, 0.06), (400, 0.06), (900, 0.05), (300, 0.05),
+                    (1000, 0.04), (200, 0.04), (1100, 0.03), (150, 0.03),
+                    (1200, 0.03), (100, 0.03), (1300, 0.02), (80,  0.02),
+                    (1400, 0.02), (60,  0.02), (1500, 0.02), (50,  0.02),
+                ]
+        for i, (freq, duration) in enumerate(explosion_seq):
+            self.tone(freq)
+            # led.on(100) if i % 2 == 0 else led.off()
+            time.sleep(duration)
+        self.off()
+        # led.off()
 
     def cleanup(self):
         self.off()
