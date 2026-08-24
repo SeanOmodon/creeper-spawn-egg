@@ -32,11 +32,11 @@ class BuzzerController:
     def off(self):
         self.pwm.ChangeDutyCycle(0)
 
-    def play_hiss_burst(self, start_freq, end_freq, duration, steps, led, brightness):
+    def play_hiss_burst(self, start_freq, end_freq, duration, steps, led, brightness, duty=40):
         step_time = duration / steps
         for i in range(steps):
             freq = int(start_freq + (end_freq - start_freq) * (i / steps))
-            self.tone(freq)
+            self.tone(freq, duty)
             # led.on(brightness)
             time.sleep(step_time)
         self.off()
@@ -54,18 +54,21 @@ class BuzzerController:
 
         for i in range(len(stages)):
             if (i == len(stages) - 1):
+
                 for j in range(15):
                     start_freq, end_freq, duration, steps, wait = stages[i]
                     self.play_hiss_burst(
                         start_freq, end_freq,
                         duration, steps,
-                        led, brightness
+                        led, brightness,
+                        40 - j
                     )
                     end_freq, start_freq, duration, steps, wait = stages[i]
                     self.play_hiss_burst(
                         start_freq, end_freq,
                         duration, steps,
-                        led, brightness
+                        led, brightness,
+                        40 - j
                     )
             else: 
                 start_freq, end_freq, duration, steps, wait = stages[i]
