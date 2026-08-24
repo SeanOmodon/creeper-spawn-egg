@@ -80,7 +80,7 @@ class BuzzerController:
 
     def play_explosion(self, led = None):
         explosion_seq = [
-            (70,0.06),(80,0.03),(90,0.02),(80,0.03),(70,0.06),(60,0.06)
+            (3000,0.06),(3500,0.03),(3000,0.02),(3500,0.03),(2000,0.06),(1000,0.06)
         ]
         for i, (freq, duration) in enumerate(explosion_seq):
             self.tone(freq)
