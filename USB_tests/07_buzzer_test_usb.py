@@ -49,12 +49,12 @@ class BuzzerController:
 		(50, 200, 0.2, 15, 0.3),
 		(200, 50, 0.5, 20, 0),
 		(50, 175, 0.5, 20, 0),
-        (175, 100, 0.1, 5, 0)
+        (120, 80, 0.05, 5, 0)
 		]
 
         for i in range(len(stages)):
             if (i == len(stages) - 1):
-                for j in range(3):
+                for j in range(4):
                     for k in range(3):
                         start_freq, end_freq, duration, steps, wait = stages[i]
                         self.play_hiss_burst(
@@ -68,7 +68,7 @@ class BuzzerController:
                             duration, steps,
                             led, brightness
                         )
-                    time.sleep(0.3) 
+                    time.sleep(0.5) 
             else: 
                 start_freq, end_freq, duration, steps, wait = stages[i]
                 self.play_hiss_burst(
