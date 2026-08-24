@@ -58,6 +58,8 @@ class BuzzerController:
                     start_freq, end_freq, duration, steps, wait = stages[i]
                     start_freq -= int(j*7.5)
                     end_freq -= int(j*7.5)
+                    print(start_freq)
+                    print(end_freq)
                     self.play_hiss_burst(
                         start_freq, end_freq,
                         duration, steps,
