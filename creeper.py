@@ -190,16 +190,17 @@ class BuzzerController:
 
     def play_startup(self, led = None):
         seq = [
-            (800, 0.06), (400, 0.06), (900, 0.05), (300, 0.05),
-            (800, 0.06), (400, 0.06), (900, 0.05), (300, 0.05),
-            (1000, 0.04), (200, 0.04), (1100, 0.03), (150, 0.03),
-            (1200, 0.03), (100, 0.03), (1300, 0.02), (80,  0.02),
+            (800, 0.2, 0.1),
+            (800, 0.2, 0.1), (800, 0.1, 0.02),
+            (600, 0.1, 0.02),
+            (1200, 0.1, 0.02),
         ]
-        for i, (freq, duration) in enumerate(seq):
+        for i, (freq, duration, delay) in enumerate(seq):
             self.tone(freq)
             # led.on(100) if i % 2 == 0 else led.off()
             time.sleep(duration)
-        self.off()
+		self.off()
+		time.sleep(delay)
         # led.off()
     def cleanup(self):
         self.off()
