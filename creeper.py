@@ -199,8 +199,8 @@ class BuzzerController:
             self.tone(freq)
             # led.on(100) if i % 2 == 0 else led.off()
             time.sleep(duration)
-		self.off()
-		time.sleep(delay)
+            self.off()
+            time.sleep(delay)
         # led.off()
     def cleanup(self):
         self.off()
