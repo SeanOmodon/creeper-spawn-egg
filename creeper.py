@@ -195,7 +195,12 @@ class BuzzerController:
             (1000, 0.04), (200, 0.04), (1100, 0.03), (150, 0.03),
             (1200, 0.03), (100, 0.03), (1300, 0.02), (80,  0.02),
         ]
-
+        for i, (freq, duration) in enumerate(seq):
+            self.tone(freq)
+            # led.on(100) if i % 2 == 0 else led.off()
+            time.sleep(duration)
+        self.off()
+        # led.off()
     def cleanup(self):
         self.off()
         self.pwm.stop()
