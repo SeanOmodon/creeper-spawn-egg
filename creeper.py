@@ -44,7 +44,7 @@ FROZEN  = "FROZEN"
 # accepting the next one. Set duration=0 for immediate commands
 # like steer and stop that should update every cycle.
 # ──────────────────────────────────────────────────────────────
-state               = IDLE
+state               = FROZEN
 person_detected     = False
 new_frame_available = False
 person_offset_x     = 0.0
@@ -187,6 +187,14 @@ class BuzzerController:
             time.sleep(duration)
         self.off()
         # led.off()
+
+    def play_startup(self, led = None):
+        seq = [
+            (800, 0.06), (400, 0.06), (900, 0.05), (300, 0.05),
+            (800, 0.06), (400, 0.06), (900, 0.05), (300, 0.05),
+            (1000, 0.04), (200, 0.04), (1100, 0.03), (150, 0.03),
+            (1200, 0.03), (100, 0.03), (1300, 0.02), (80,  0.02),
+        ]
 
     def cleanup(self):
         self.off()
@@ -523,11 +531,13 @@ def main():
     threading.Thread(target=vision_thread,            daemon=True).start()
     threading.Thread(target=motor_thread, args=(mc,), daemon=True).start()
 
-    print("[Creeper] Warming up...")
+    print("[Creeper] Starting up...")
     time.sleep(2)
     motor_command = ("stop", [], 0)
     time.sleep(0.5)
-    print("[Creeper] Running. State: IDLE")
+    print("[Creeper] Running. State: FROZEN")
+    buzzer.play_startup()
+    print("[Creeper] Touch sensor to start.")
 
     try:
         while True:
